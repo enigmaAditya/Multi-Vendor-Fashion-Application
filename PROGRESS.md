@@ -73,7 +73,7 @@
 
 ## Week 6 — [2026-07-18] (Inventory & Stock Module — COMPLETE)
 
-**Plan:** Phase P4 (Inventory & Stock module)
+**Plan:** Phase P5 (Inventory & Stock module)
 **Done:**
 
 - [x] Implemented SKU inventory schema and migrations mapping warehouse inventory levels and append-only ledger entries (ADR-007)
@@ -83,9 +83,9 @@
 - [x] Guarded SKUs from deletion by blocking catalog adjustments when active warehouses contain positive stock
 - [x] Wrote unit and E2E integration tests validating stock replenishments, concurrency claims, hold expiration, and SKU deletion guards
 
-## Week 7 — [2026-07-18] (Orders & Checkout Module — COMPLETE)
+## Week 7 — [2026-07-18] (Orders, Checkout & Payments — COMPLETE)
 
-**Plan:** Phase P5 (Orders & Checkout module)
+**Plan:** Phase P5 (Orders, Checkout & Payments module)
 **Done:**
 
 - [x] Created Order, SubOrder, OrderItem, and Webhook Log database models with multi-item composite unique index constraints
@@ -95,4 +95,6 @@
 - [x] Implemented atomic webhook capture transactions checking idempotency logs and committing stock allocations (ADR-005)
 - [x] Handled captured webhook failures and lost lock races by transitioning orders to `REFUND_REQUIRED` and emitting outbox events
 - [x] Wrote unit and E2E integration tests validating amount-tampering blocks, duplicate webhook idempotency, and expired hold outcomes
+      **Next target:** Payouts & Commission Settlement (Phase P5 Back Half - Razorpay Route, commission ledger, settlements)
+
 
