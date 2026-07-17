@@ -32,7 +32,7 @@
 - [x] Configured Prisma 7 PostgreSQL driver adapter (`@prisma/adapter-pg` and `pg`) with connection reuse and pool ending in tests
 - [x] Wrote 10 passed unit tests verifying OTP retry thresholds, throttle windows, and token version rotation
 - [x] Wrote passed E2E integration tests validating the complete authentication lifecycle against active Postgres & Redis
-      **Known-Open / Deferred Items:** - [ ] Google OAuth: Currently a mock/stub that simulates idToken validation. Needs real Google API token verification before production. - [ ] RBAC guards: Route-layer Role-Based Access Control (@Roles() / JwtAuthGuard) are deferred to seller/admin modules.
+      **Known-Open / Deferred Items:** - [ ] Google OAuth: Currently a mock/stub that simulates idToken validation. Needs real Google API token verification before production. - [x] RBAC guards: Route-layer Role-Based Access Control (@Roles() / JwtAuthGuard) implemented and verified in Catalog module.
       **Next week:** Phase P4 (Catalog and Inventory modules)
 
 ## Week 4 — [2026-07-17] (Catalog Module — COMPLETE)
