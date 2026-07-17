@@ -131,7 +131,17 @@ export class MediaService implements OnModuleDestroy {
       data: { status: 'UPLOADED' },
     });
 
-    await this.mediaQueue.add('process-image', { mediaId });
+    await this.mediaQueue.add(
+      'process-image',
+      { mediaId },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+      },
+    );
 
     return {
       status: 'PROCESSING',

@@ -87,6 +87,32 @@ describe('MediaProcessor', () => {
       expect(mockStorage.deleteObject).toHaveBeenCalledWith('raw/img.png');
     });
 
+    it('should remain PROCESSED if post-commit deleteObject fails', async () => {
+      mockPrisma.media.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.media.findUnique.mockResolvedValue({
+        id: mediaId,
+        userId: 'user-1',
+        storageKey: 'raw/img.png',
+        status: 'PROCESSING',
+      });
+
+      mockStorage.getFullObject.mockResolvedValue(
+        Buffer.from('dummy-image-bytes'),
+      );
+      mockStorage.uploadProcessed.mockResolvedValue('https://cdn.com/img.webp');
+
+      mockStorage.deleteObject.mockRejectedValueOnce(
+        new Error('S3 delete object connection timeout'),
+      );
+
+      await expect(processor.processImage(mediaId)).rejects.toThrow(
+        'S3 delete object connection timeout',
+      );
+
+      expect(mockPrisma.media.update).toHaveBeenCalled();
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledTimes(1);
+    });
+
     it('should bail out immediately if media status is not UPLOADED (affected 0 rows)', async () => {
       mockPrisma.media.updateMany.mockResolvedValue({ count: 0 });
 

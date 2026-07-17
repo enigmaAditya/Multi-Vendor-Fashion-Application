@@ -96,15 +96,30 @@ export class MediaProcessor implements OnModuleInit, OnModuleDestroy {
     try {
       const rawBuffer = await this.storage.getFullObject(media.storageKey);
 
-      const thumbnailBuffer = await sharp(rawBuffer)
-        .resize(150, 150, { fit: 'cover' })
-        .toFormat('webp')
-        .toBuffer();
+      let thumbnailBuffer: Buffer;
+      let detailBuffer: Buffer;
+      try {
+        thumbnailBuffer = await sharp(rawBuffer)
+          .resize(150, 150, { fit: 'cover' })
+          .toFormat('webp')
+          .toBuffer();
 
-      const detailBuffer = await sharp(rawBuffer)
-        .resize(800, null, { withoutEnlargement: true })
-        .toFormat('webp')
-        .toBuffer();
+        detailBuffer = await sharp(rawBuffer)
+          .resize(800, null, { withoutEnlargement: true })
+          .toFormat('webp')
+          .toBuffer();
+      } catch (sharpErr: unknown) {
+        const error = sharpErr as Error;
+        this.logger.error(
+          `Sharp processing failed (permanent image error) for media ${mediaId}: ${error.message}`,
+          error.stack,
+        );
+        await this.prisma.media.updateMany({
+          where: { id: mediaId, status: 'PROCESSING' },
+          data: { status: 'FAILED' },
+        });
+        return;
+      }
 
       const thumbnailKey = `processed/thumbnail-${mediaId}.webp`;
       const detailKey = `processed/detail-${mediaId}.webp`;
@@ -141,25 +156,32 @@ export class MediaProcessor implements OnModuleInit, OnModuleDestroy {
               mediaId,
               userId: media.userId,
               processedUrls,
+              originalKey: media.storageKey,
             },
           },
         });
       });
 
       await this.storage.deleteObject(media.storageKey);
-
       this.logger.log(`Media ID ${mediaId} processed successfully.`);
     } catch (err: unknown) {
       const error = err as Error;
       this.logger.error(
-        `Error processing image ${mediaId}: ${error.message}`,
+        `Transient processing failure for media ${mediaId}: ${error.message}`,
         error.stack,
       );
 
-      await this.prisma.media.update({
-        where: { id: mediaId },
-        data: { status: 'FAILED' },
+      await this.prisma.media.updateMany({
+        where: {
+          id: mediaId,
+          status: 'PROCESSING',
+        },
+        data: {
+          status: 'UPLOADED',
+        },
       });
+
+      throw error;
     }
   }
 }

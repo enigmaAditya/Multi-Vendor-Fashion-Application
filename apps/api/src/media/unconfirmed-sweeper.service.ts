@@ -47,6 +47,7 @@ export class UnconfirmedSweeperService
         where: {
           status: 'PENDING_UPLOAD',
           createdAt: { lt: oneHourAgo },
+          productImage: null,
         },
       });
 

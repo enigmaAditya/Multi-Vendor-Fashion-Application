@@ -52,18 +52,22 @@ describe('Media System (e2e)', () => {
       };
     }),
     checkObjectExists: jest.fn().mockResolvedValue(true),
-    getObjectRange: jest.fn().mockResolvedValue(
-      Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-        'base64',
+    getObjectRange: jest
+      .fn()
+      .mockResolvedValue(
+        Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+          'base64',
+        ),
       ),
-    ),
-    getFullObject: jest.fn().mockResolvedValue(
-      Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-        'base64',
+    getFullObject: jest
+      .fn()
+      .mockResolvedValue(
+        Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+          'base64',
+        ),
       ),
-    ),
     uploadProcessed: jest.fn().mockResolvedValue('https://cdn.com/img.webp'),
     deleteObject: jest.fn().mockResolvedValue(undefined),
   };

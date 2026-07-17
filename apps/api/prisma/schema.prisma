@@ -192,7 +192,7 @@ model ProductImage {
   variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   url       String
   mediaId   String?        @unique
-  media     Media?         @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  media     Media?         @relation(fields: [mediaId], references: [id], onDelete: Restrict)
   isPrimary Boolean        @default(false)
   createdAt DateTime       @default(now())
 
