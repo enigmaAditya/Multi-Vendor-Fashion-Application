@@ -24,6 +24,8 @@ model User {
   media         Media[]
   orders        Order[]
   subOrders     SubOrder[]
+  payouts       Payout[]
+  linkedAccount SellerLinkedAccount?
 
   @@map("users")
 }
@@ -350,16 +352,20 @@ model Order {
 }
 
 model SubOrder {
-  id        String      @id @default(uuid(7))
-  orderId   String
-  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  sellerId  String
-  seller    User        @relation(fields: [sellerId], references: [id])
-  amount    BigInt
-  status    String      @default("PENDING")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  items     OrderItem[]
+  id               String             @id @default(uuid(7))
+  orderId          String
+  order            Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sellerId         String
+  seller           User               @relation(fields: [sellerId], references: [id])
+  amount           BigInt
+  status           String             @default("PENDING")
+  deliveredAt      DateTime?
+  settlementStatus String             @default("PENDING")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  items            OrderItem[]
+  payout           Payout?
+  commissionLogs   CommissionLedger[]
 
   @@map("sub_orders")
 }
@@ -384,3 +390,59 @@ model PaymentWebhookLog {
 
   @@map("payment_webhook_logs")
 }
+
+model CommissionRule {
+  id          String   @id @default(uuid(7))
+  categoryId  String?  @unique
+  sellerId    String?  @unique
+  ratePercent Float    // e.g. 5.0 for 5%
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("commission_rules")
+}
+
+model CommissionLedger {
+  id            String   @id @default(uuid(7))
+  subOrderId    String
+  amount        BigInt   // Commission amount in paise
+  feeRate       Float    // Percentage rate applied at settlement
+  type          String   // "EARNED", "REFUNDED"
+  createdAt     DateTime @default(now())
+
+  subOrder      SubOrder @relation(fields: [subOrderId], references: [id])
+
+  @@map("commission_ledger")
+}
+
+model SellerLinkedAccount {
+  id                String   @id @default(uuid(7))
+  sellerId          String   @unique
+  gatewayAccountId  String   // Razorpay Route account ID (acc_xxx)
+  status            String   // "ACTIVE", "SUSPENDED"
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [sellerId], references: [id])
+
+  @@map("seller_linked_accounts")
+}
+
+model Payout {
+  id                String    @id @default(uuid(7))
+  sellerId          String
+  subOrderId        String    @unique
+  amount            BigInt    // Net payout to seller
+  gatewayTransferId String?   // Razorpay transfer transaction ID
+  status            String    // "PENDING", "SUCCESS", "FAILED", "BLOCKED", "FAILED_PERMANENT"
+  idempotencyKey    String    @unique
+  retryCount        Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  subOrder          SubOrder  @relation(fields: [subOrderId], references: [id])
+  seller            User      @relation(fields: [sellerId], references: [id])
+
+  @@map("payouts")
+}
+
