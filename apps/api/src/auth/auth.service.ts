@@ -18,6 +18,32 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  private getAccessSecret(): string {
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'FATAL: JWT_ACCESS_SECRET environment variable is not defined in production!',
+        );
+      }
+      return 'access-secret-key-12345';
+    }
+    return secret;
+  }
+
+  private getRefreshSecret(): string {
+    const secret = process.env.JWT_REFRESH_SECRET;
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'FATAL: JWT_REFRESH_SECRET environment variable is not defined in production!',
+        );
+      }
+      return 'refresh-secret-key-12345';
+    }
+    return secret;
+  }
+
   // Request Phone OTP
   async requestOtp(phone: string): Promise<void> {
     const redisClient = this.redis.getClient();
@@ -195,7 +221,7 @@ export class AuthService {
 
     // Access Token (15m validity)
     const accessToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
+      secret: this.getAccessSecret(),
       expiresIn: '15m',
     });
 
@@ -203,7 +229,7 @@ export class AuthService {
     const rawRefreshToken = await this.jwtService.signAsync(
       { sub: user.id, version: user.tokenVersion, jti: crypto.randomUUID() },
       {
-        secret: process.env.JWT_REFRESH_SECRET || 'refresh-secret-key-12345',
+        secret: this.getRefreshSecret(),
         expiresIn: '7d',
       },
     );
@@ -238,7 +264,7 @@ export class AuthService {
         sub: string;
         version: number;
       }>(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET || 'refresh-secret-key-12345',
+        secret: this.getRefreshSecret(),
       });
     } catch {
       throw new HttpException(
@@ -268,14 +294,21 @@ export class AuthService {
         `Token reuse detected! Revoking all sessions for User: ${userId}`,
       );
 
-      // Bump user version -> Invalidates all current access and refresh tokens globally
-      await this.prisma.user.update({
+      // Verify user exists before incrementing
+      const userExists = await this.prisma.user.findUnique({
         where: { id: userId },
-        data: { tokenVersion: { increment: 1 } },
       });
 
-      // Delete all refresh tokens for this user
-      await this.prisma.refreshToken.deleteMany({ where: { userId } });
+      if (userExists) {
+        // Bump user version -> Invalidates all current access and refresh tokens globally
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { tokenVersion: { increment: 1 } },
+        });
+
+        // Delete all refresh tokens for this user
+        await this.prisma.refreshToken.deleteMany({ where: { userId } });
+      }
 
       throw new HttpException(
         {
