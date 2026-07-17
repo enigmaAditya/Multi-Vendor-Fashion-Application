@@ -54,4 +54,5 @@
 - [x] Wrote passed E2E integration tests validating category trees, drafts completeness checks, seller isolation, and admin moderation flows
       **Known-Open / Deferred Items:**
       - [ ] SKU Churn Refactor: updateProduct currently deletes and recreates all variants and SKUs on every edit. This must be refactored to perform a diff/upsert before implementing the Inventory module to prevent orphaning inventory and order reference keys.
+      - [ ] Price-Sort Total Count Parity: The total pagination count for price-sorted queries is computed via Prisma where rather than the dynamic raw SQL, creating boundary edge cases on price range filters. Unify this under a nested count query in Phase P8 before Search/PLP polish.
       **Next week:** Phase P5 (Inventory and Orders module)
