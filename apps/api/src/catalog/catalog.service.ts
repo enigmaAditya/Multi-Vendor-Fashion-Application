@@ -175,6 +175,42 @@ export class CatalogService {
   async createProduct(sellerId: string, dto: CreateProductDto) {
     const slug = dto.slug || this.generateSlug(dto.name);
 
+    // Collect and validate media IDs
+    const incomingMediaIds: string[] = [];
+    for (const variantDto of dto.variants) {
+      for (const imgDto of variantDto.images) {
+        if (imgDto.mediaId) {
+          incomingMediaIds.push(imgDto.mediaId);
+        }
+      }
+    }
+
+    if (incomingMediaIds.length > 0) {
+      const mediaRecords = await this.prisma.media.findMany({
+        where: {
+          id: { in: incomingMediaIds },
+        },
+      });
+
+      const mediaMap = new Map(mediaRecords.map((m) => [m.id, m]));
+      for (const mediaId of incomingMediaIds) {
+        const media = mediaMap.get(mediaId);
+        if (!media) {
+          throw new BadRequestException(`Media record ${mediaId} not found.`);
+        }
+        if (media.status !== 'PROCESSED') {
+          throw new BadRequestException(
+            `Media record ${mediaId} has status ${media.status} instead of PROCESSED.`,
+          );
+        }
+        if (media.userId !== sellerId) {
+          throw new BadRequestException(
+            `You do not own the media record ${mediaId}.`,
+          );
+        }
+      }
+    }
+
     // Dynamic checks
     if (dto.categoryId) {
       const category = await this.prisma.category.findUnique({
@@ -230,11 +266,30 @@ export class CatalogService {
 
         // Create images
         if (variantDto.images && variantDto.images.length > 0) {
+          const primaryCount = variantDto.images.filter(
+            (img) => img.isPrimary,
+          ).length;
+          if (primaryCount === 0) {
+            variantDto.images[0].isPrimary = true;
+          } else if (primaryCount > 1) {
+            let foundPrimary = false;
+            for (const img of variantDto.images) {
+              if (img.isPrimary) {
+                if (foundPrimary) {
+                  img.isPrimary = false;
+                } else {
+                  foundPrimary = true;
+                }
+              }
+            }
+          }
+
           await tx.productImage.createMany({
             data: variantDto.images.map((img) => ({
               variantId: variant.id,
               url: img.url,
               isPrimary: img.isPrimary,
+              mediaId: img.mediaId || null,
             })),
           });
         }
@@ -293,8 +348,74 @@ export class CatalogService {
   }
 
   async updateProduct(id: string, sellerId: string, dto: UpdateProductDto) {
+    // Collect and validate media IDs (N+1 validation check - batched)
+    const incomingMediaIds: string[] = [];
+    if (dto.variants) {
+      for (const variantDto of dto.variants) {
+        for (const imgDto of variantDto.images) {
+          if (imgDto.mediaId) {
+            incomingMediaIds.push(imgDto.mediaId);
+          }
+        }
+      }
+    }
+
+    if (incomingMediaIds.length > 0) {
+      const mediaRecords = await this.prisma.media.findMany({
+        where: {
+          id: { in: incomingMediaIds },
+        },
+      });
+
+      const mediaMap = new Map(mediaRecords.map((m) => [m.id, m]));
+      for (const mediaId of incomingMediaIds) {
+        const media = mediaMap.get(mediaId);
+        if (!media) {
+          throw new BadRequestException(`Media record ${mediaId} not found.`);
+        }
+        if (media.status !== 'PROCESSED') {
+          throw new BadRequestException(
+            `Media record ${mediaId} has status ${media.status} instead of PROCESSED.`,
+          );
+        }
+        if (media.userId !== sellerId) {
+          throw new BadRequestException(
+            `You do not own the media record ${mediaId}.`,
+          );
+        }
+      }
+    }
+
+    // Dynamic checks
+    if (dto.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category) {
+        throw new BadRequestException('Category not found.');
+      }
+    }
+
+    if (dto.brandId) {
+      const brand = await this.prisma.brand.findUnique({
+        where: { id: dto.brandId },
+      });
+      if (!brand) {
+        throw new BadRequestException('Brand not found.');
+      }
+    }
+
+    // Fetch existing product status to run ID checks
     const product = await this.prisma.product.findUnique({
       where: { id },
+      include: {
+        variants: {
+          include: {
+            images: true,
+            skus: true,
+          },
+        },
+      },
     });
 
     if (!product) {
@@ -305,6 +426,29 @@ export class CatalogService {
       throw new ForbiddenException(
         'You are not authorized to update this product.',
       );
+    }
+
+    // Cross-product hijacking validations
+    const currentVariantIds = new Set(product.variants.map((v) => v.id));
+    const currentImageIds = new Set(
+      product.variants.flatMap((v) => v.images.map((img) => img.id)),
+    );
+
+    if (dto.variants) {
+      for (const variantDto of dto.variants) {
+        if (variantDto.id && !currentVariantIds.has(variantDto.id)) {
+          throw new BadRequestException(
+            `Variant ID ${variantDto.id} does not belong to this product.`,
+          );
+        }
+        for (const imgDto of variantDto.images) {
+          if (imgDto.id && !currentImageIds.has(imgDto.id)) {
+            throw new BadRequestException(
+              `Image ID ${imgDto.id} does not belong to this product.`,
+            );
+          }
+        }
+      }
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -339,41 +483,185 @@ export class CatalogService {
         }
       }
 
-      // 3. Reset and rebuild variants & SKUs
+      // 3. Diff and upsert variants, images, and SKUs
       if (dto.variants) {
-        await tx.productVariant.deleteMany({
-          where: { productId: id },
-        });
+        const incomingVariantIds = new Set(
+          dto.variants.map((v) => v.id).filter(Boolean) as string[],
+        );
+
+        // A. DELETE operations first (Ordering constraint to prevent SKU unique code collision)
+        const removedVariantIds = product.variants
+          .map((v) => v.id)
+          .filter((vid) => !incomingVariantIds.has(vid));
+
+        const imagesToDelete: string[] = [];
+        const skusToDelete: string[] = [];
 
         for (const variantDto of dto.variants) {
-          const variant = await tx.productVariant.create({
-            data: {
-              productId: id,
-              color: variantDto.color,
-            },
-          });
+          if (variantDto.id) {
+            const existingVariant = product.variants.find(
+              (v) => v.id === variantDto.id,
+            );
+            if (existingVariant) {
+              const incomingImgIds = new Set(
+                variantDto.images
+                  .map((img) => img.id)
+                  .filter(Boolean) as string[],
+              );
+              const incomingSkuCodes = new Set(
+                variantDto.skus.map((sku) => sku.skuCode),
+              );
 
-          if (variantDto.images && variantDto.images.length > 0) {
-            await tx.productImage.createMany({
-              data: variantDto.images.map((img) => ({
-                variantId: variant.id,
-                url: img.url,
-                isPrimary: img.isPrimary,
-              })),
-            });
+              existingVariant.images.forEach((img) => {
+                if (!incomingImgIds.has(img.id)) {
+                  imagesToDelete.push(img.id);
+                }
+              });
+
+              existingVariant.skus.forEach((sku) => {
+                if (!incomingSkuCodes.has(sku.skuCode)) {
+                  skusToDelete.push(sku.id);
+                }
+              });
+            }
+          }
+        }
+
+        // Execute DB deletes (ordering: children first then parents)
+        if (skusToDelete.length > 0) {
+          await tx.sku.deleteMany({
+            where: { id: { in: skusToDelete } },
+          });
+        }
+        if (imagesToDelete.length > 0) {
+          await tx.productImage.deleteMany({
+            where: { id: { in: imagesToDelete } },
+          });
+        }
+        if (removedVariantIds.length > 0) {
+          await tx.productVariant.deleteMany({
+            where: { id: { in: removedVariantIds } },
+          });
+        }
+
+        // B. UPDATE & CREATE operations
+        for (const variantDto of dto.variants) {
+          let variantId = variantDto.id;
+
+          // Normalize primary images to exactly one (Note 4)
+          const primaryCount = variantDto.images.filter(
+            (img) => img.isPrimary,
+          ).length;
+          if (primaryCount === 0 && variantDto.images.length > 0) {
+            variantDto.images[0].isPrimary = true;
+          } else if (primaryCount > 1) {
+            let foundPrimary = false;
+            for (const img of variantDto.images) {
+              if (img.isPrimary) {
+                if (foundPrimary) {
+                  img.isPrimary = false;
+                } else {
+                  foundPrimary = true;
+                }
+              }
+            }
           }
 
-          for (const skuDto of variantDto.skus) {
-            await tx.sku.create({
+          if (variantId) {
+            // Match variant -> Update
+            await tx.productVariant.update({
+              where: { id: variantId },
+              data: { color: variantDto.color },
+            });
+
+            const existingVariant = product.variants.find(
+              (v) => v.id === variantId,
+            )!;
+
+            // Upsert child images
+            for (const imgDto of variantDto.images) {
+              if (imgDto.id) {
+                await tx.productImage.update({
+                  where: { id: imgDto.id },
+                  data: {
+                    url: imgDto.url,
+                    isPrimary: imgDto.isPrimary,
+                    mediaId: imgDto.mediaId || null,
+                  },
+                });
+              } else {
+                await tx.productImage.create({
+                  data: {
+                    variantId,
+                    url: imgDto.url,
+                    isPrimary: imgDto.isPrimary,
+                    mediaId: imgDto.mediaId || null,
+                  },
+                });
+              }
+            }
+
+            // Upsert child SKUs
+            for (const skuDto of variantDto.skus) {
+              const existingSku = existingVariant.skus.find(
+                (s) => s.skuCode === skuDto.skuCode,
+              );
+
+              if (existingSku) {
+                await tx.sku.update({
+                  where: { id: existingSku.id },
+                  data: {
+                    size: skuDto.size,
+                    price: BigInt(skuDto.price),
+                    mrp: BigInt(skuDto.mrp),
+                  },
+                });
+              } else {
+                await tx.sku.create({
+                  data: {
+                    variantId,
+                    skuCode: skuDto.skuCode,
+                    sellerId,
+                    size: skuDto.size,
+                    price: BigInt(skuDto.price),
+                    mrp: BigInt(skuDto.mrp),
+                  },
+                });
+              }
+            }
+          } else {
+            // New variant -> Create variant + all children
+            const variant = await tx.productVariant.create({
               data: {
-                variantId: variant.id,
-                skuCode: skuDto.skuCode,
-                sellerId,
-                size: skuDto.size,
-                price: BigInt(skuDto.price),
-                mrp: BigInt(skuDto.mrp),
+                productId: id,
+                color: variantDto.color,
               },
             });
+            variantId = variant.id;
+
+            for (const imgDto of variantDto.images) {
+              await tx.productImage.create({
+                data: {
+                  variantId,
+                  url: imgDto.url,
+                  isPrimary: imgDto.isPrimary,
+                  mediaId: imgDto.mediaId || null,
+                },
+              });
+            }
+
+            for (const skuDto of variantDto.skus) {
+              await tx.sku.create({
+                data: {
+                  variantId,
+                  skuCode: skuDto.skuCode,
+                  sellerId,
+                  size: skuDto.size,
+                  price: BigInt(skuDto.price),
+                  mrp: BigInt(skuDto.mrp),
+                },
+              });
+            }
           }
         }
       }

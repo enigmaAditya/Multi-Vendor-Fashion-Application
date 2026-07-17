@@ -37,13 +37,22 @@ describe('CatalogService', () => {
     },
     productVariant: {
       create: jest.fn(),
+      update: jest.fn(),
       deleteMany: jest.fn(),
     },
     productImage: {
+      create: jest.fn(),
       createMany: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
     },
     sku: {
       create: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    media: {
+      findMany: jest.fn(),
     },
     outboxEvent: {
       create: jest.fn(),
@@ -234,6 +243,201 @@ describe('CatalogService', () => {
       await expect(
         service.updateProduct('prod-1', sellerId, { name: 'New Name' }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should preserve variant and SKU UUIDs on metadata updates', async () => {
+      const mockExistingProduct = {
+        id: 'prod-1',
+        sellerId,
+        variants: [
+          {
+            id: 'var-1',
+            color: 'Blue',
+            images: [
+              {
+                id: 'img-1',
+                url: 'https://img.com/b.png',
+                isPrimary: true,
+                mediaId: null,
+              },
+            ],
+            skus: [
+              {
+                id: 'sku-1',
+                skuCode: 'SKU-BLUE-M',
+                size: 'M',
+                price: BigInt(1500),
+                mrp: BigInt(2000),
+                sellerId,
+              },
+            ],
+          },
+        ],
+      };
+
+      mockPrisma.product.findUnique.mockResolvedValueOnce(mockExistingProduct);
+      mockPrisma.product.findUnique.mockResolvedValueOnce(mockExistingProduct);
+
+      const updateDto = {
+        name: 'Updated Name',
+        variants: [
+          {
+            id: 'var-1',
+            color: 'Blue',
+            images: [
+              { id: 'img-1', url: 'https://img.com/b.png', isPrimary: true },
+            ],
+            skus: [
+              { skuCode: 'SKU-BLUE-M', size: 'M', price: 1600, mrp: 2200 },
+            ],
+          },
+        ],
+      };
+
+      await service.updateProduct('prod-1', sellerId, updateDto);
+
+      expect(mockPrisma.productVariant.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.productImage.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.sku.deleteMany).not.toHaveBeenCalled();
+
+      expect(mockPrisma.productVariant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'var-1' },
+          data: { color: 'Blue' },
+        }),
+      );
+      expect(mockPrisma.sku.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'sku-1' },
+          data: expect.objectContaining({
+            price: BigInt(1600),
+            mrp: BigInt(2200),
+          }),
+        }),
+      );
+    });
+
+    it('should preserve SKU IDs and prevent churn on variant color rename', async () => {
+      const mockExistingProduct = {
+        id: 'prod-1',
+        sellerId,
+        variants: [
+          {
+            id: 'var-1',
+            color: 'Navy',
+            images: [
+              {
+                id: 'img-1',
+                url: 'https://img.com/n.png',
+                isPrimary: true,
+                mediaId: null,
+              },
+            ],
+            skus: [
+              {
+                id: 'sku-1',
+                skuCode: 'SKU-NAVY-M',
+                size: 'M',
+                price: BigInt(1000),
+                mrp: BigInt(1500),
+                sellerId,
+              },
+            ],
+          },
+        ],
+      };
+
+      mockPrisma.product.findUnique.mockResolvedValueOnce(mockExistingProduct);
+      mockPrisma.product.findUnique.mockResolvedValueOnce(mockExistingProduct);
+
+      const updateDto = {
+        variants: [
+          {
+            id: 'var-1',
+            color: 'Dark Blue',
+            images: [
+              { id: 'img-1', url: 'https://img.com/n.png', isPrimary: true },
+            ],
+            skus: [
+              { skuCode: 'SKU-NAVY-M', size: 'M', price: 1000, mrp: 1500 },
+            ],
+          },
+        ],
+      };
+
+      await service.updateProduct('prod-1', sellerId, updateDto);
+
+      expect(mockPrisma.productVariant.deleteMany).not.toHaveBeenCalled();
+      expect(mockPrisma.productVariant.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'var-1' },
+          data: { color: 'Dark Blue' },
+        }),
+      );
+      expect(mockPrisma.sku.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'sku-1' },
+        }),
+      );
+    });
+
+    it('should block linking unprocessed or different seller mediaId', async () => {
+      mockPrisma.media.findMany.mockResolvedValue([
+        {
+          id: 'media-bad',
+          status: 'PENDING_UPLOAD',
+          userId: 'seller-other',
+        },
+      ]);
+
+      const updateDto = {
+        variants: [
+          {
+            color: 'Red',
+            images: [
+              {
+                url: 'https://img.com/r.png',
+                isPrimary: true,
+                mediaId: 'media-bad',
+              },
+            ],
+            skus: [{ skuCode: 'SKU-RED-S', size: 'S', price: 1000, mrp: 1000 }],
+          },
+        ],
+      };
+
+      await expect(
+        service.updateProduct('prod-1', sellerId, updateDto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject with BadRequestException on variant or image ID mismatches', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue({
+        id: 'prod-1',
+        sellerId,
+        variants: [
+          {
+            id: 'var-real',
+            color: 'Black',
+            images: [{ id: 'img-real', url: '...' }],
+          },
+        ],
+      });
+
+      const updateDto = {
+        variants: [
+          {
+            id: 'var-fake',
+            color: 'Black',
+            images: [{ url: '...', isPrimary: false }],
+            skus: [{ skuCode: '...', size: '...', price: 10, mrp: 10 }],
+          },
+        ],
+      };
+
+      await expect(
+        service.updateProduct('prod-1', sellerId, updateDto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

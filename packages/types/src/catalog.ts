@@ -11,8 +11,16 @@ export const CreateBrandSchema = z.object({
   slug: z.string().min(1).optional(),
 });
 
+export const ImageInputSchema = z.object({
+  id: z.string().uuid().optional(),
+  url: z.string().url(),
+  isPrimary: z.boolean().default(false),
+  mediaId: z.string().uuid().optional().nullable(),
+});
+
 export const SkuInputSchema = z
   .object({
+    id: z.string().uuid().optional(),
     skuCode: z.string().min(1),
     size: z.string().min(1),
     price: z.number().int().nonnegative(),
@@ -24,14 +32,10 @@ export const SkuInputSchema = z
   });
 
 export const VariantInputSchema = z.object({
+  id: z.string().uuid().optional(),
   color: z.string().min(1),
   images: z
-    .array(
-      z.object({
-        url: z.string().url(),
-        isPrimary: z.boolean().default(false),
-      }),
-    )
+    .array(ImageInputSchema)
     .min(1, "At least one image is required per variant"),
   skus: z
     .array(SkuInputSchema)
