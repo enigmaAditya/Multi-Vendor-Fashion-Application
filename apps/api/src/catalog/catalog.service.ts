@@ -17,6 +17,7 @@ import {
 } from '@marketplace/types';
 import { PRODUCT_STATUS, ProductStatus } from '@marketplace/constants';
 import * as crypto from 'crypto';
+import { uuidv7 } from 'uuidv7';
 
 @Injectable()
 export class CatalogService {
@@ -71,7 +72,7 @@ export class CatalogService {
       parentPath = parent.path;
     }
 
-    const categoryId = crypto.randomUUID();
+    const categoryId = uuidv7();
     const path = parentPath ? `${parentPath}/${categoryId}` : categoryId;
 
     return this.prisma.category.create({
@@ -134,7 +135,7 @@ export class CatalogService {
         });
 
         for (const desc of descendants) {
-          const updatedDescPath = desc.path.replace(oldPath, newPath);
+          const updatedDescPath = `${newPath}${desc.path.slice(oldPath.length)}`;
           await tx.category.update({
             where: { id: desc.id },
             data: { path: updatedDescPath },
@@ -622,24 +623,64 @@ export class CatalogService {
       const direction = query.sort === 'PRICE_ASC' ? 'ASC' : 'DESC';
       const orderAgg = query.sort === 'PRICE_ASC' ? 'MIN' : 'MAX';
 
-      // We extract raw WHERE conditions or perform simplified sorting
-      // For clean E2E compatibility and robustness we execute the SQL:
-      const rawProducts = await this.prisma.$queryRawUnsafe<
-        Array<{ id: string }>
-      >(
-        `
-        SELECT p.id, ${orderAgg}(s.price) as target_price
+      const conditions: Prisma.Sql[] = [Prisma.sql`p.status = 'LIVE'`];
+
+      if (query.categoryId) {
+        const category = await this.prisma.category.findUnique({
+          where: { id: query.categoryId },
+        });
+        if (category) {
+          const descendantCategories = await this.prisma.category.findMany({
+            where: {
+              OR: [
+                { id: query.categoryId },
+                { path: { startsWith: `${category.path}/` } },
+              ],
+            },
+          });
+          const categoryIds = descendantCategories.map((c) => c.id);
+          conditions.push(
+            Prisma.sql`p."categoryId" = ANY(${categoryIds}::uuid[])`,
+          );
+        }
+      }
+
+      if (query.brandId) {
+        conditions.push(Prisma.sql`p."brandId" = ${query.brandId}::uuid`);
+      }
+
+      if (query.priceMin !== undefined) {
+        conditions.push(Prisma.sql`s.price >= ${BigInt(query.priceMin)}`);
+      }
+
+      if (query.priceMax !== undefined) {
+        conditions.push(Prisma.sql`s.price <= ${BigInt(query.priceMax)}`);
+      }
+
+      if (query.attributes && query.attributes.length > 0) {
+        conditions.push(Prisma.sql`
+          p.id IN (
+            SELECT "productId" 
+            FROM product_attribute_value_maps 
+            WHERE "attributeValueId" = ANY(${query.attributes}::uuid[]) 
+            GROUP BY "productId" 
+            HAVING COUNT(DISTINCT "attributeValueId") = ${query.attributes.length}
+          )
+        `);
+      }
+
+      const whereSql = Prisma.join(conditions, ' AND ');
+
+      const rawProducts = await this.prisma.$queryRaw<{ id: string }[]>`
+        SELECT p.id, ${Prisma.raw(orderAgg)}(s.price) as target_price
         FROM products p
         JOIN product_variants pv ON pv."productId" = p.id
         JOIN skus s ON s."variantId" = pv.id
-        WHERE p.status = 'LIVE'
+        WHERE ${whereSql}
         GROUP BY p.id
-        ORDER BY target_price ${direction}
-        LIMIT $1 OFFSET $2
-      `,
-        limit,
-        skip,
-      );
+        ORDER BY target_price ${Prisma.raw(direction)}
+        LIMIT ${limit} OFFSET ${skip}
+      `;
 
       const ids = rawProducts.map((p) => p.id);
       if (ids.length === 0) {
@@ -688,6 +729,7 @@ export class CatalogService {
     }
 
     if (query.sort === 'RECOMMENDED') {
+      // TODO: real ranking in P8
       orderBy = { name: 'asc' };
     }
 
