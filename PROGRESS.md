@@ -54,3 +54,19 @@
 - [x] Wrote passed E2E integration tests validating category trees, drafts completeness checks, seller isolation, and admin moderation flows
       **Known-Open / Deferred Items:** - [ ] SKU Churn Refactor: updateProduct currently deletes and recreates all variants and SKUs on every edit. This must be refactored to perform a diff/upsert before implementing the Inventory module to prevent orphaning inventory and order reference keys. - [ ] Price-Sort Total Count Parity: The total pagination count for price-sorted queries is computed via Prisma where rather than the dynamic raw SQL, creating boundary edge cases on price range filters. Unify this under a nested count query in Phase P8 before Search/PLP polish.
       **Next week:** Phase P5 (Inventory and Orders module)
+
+## Week 5 — [2026-07-17] (Media Module — COMPLETE)
+
+**Plan:** Phase P3 Core (Media module)
+**Done:**
+
+- [x] Created `Media` schema and migrations linking optional `mediaId` to `ProductImage` (1-to-1 unique) with UUIDv7
+- [x] Configured StorageService generating secure client presigned POST policy URLs, capping file size to 5MB via `content-length-range`
+- [x] Implemented magic bytes signature verification (JPEG, PNG, WebP) fetching partial object bytes (range bytes 0-99)
+- [x] Exposed protected endpoints for presigned URLs, confirmation, and status checks with strict IDOR ownership checks
+- [x] Handled validation failures by immediately setting status to `FAILED` and purging unverified objects
+- [x] Built image processor via BullMQ, resizing to WebP (150px thumbnail & 800px detail) with atomic update claim idempotency
+- [x] Emitted `media.processed` events through outbox inside completion transactions (ADR-006)
+- [x] Added scheduled hourly sweeper clearing stale `PENDING_UPLOAD` objects and records
+- [x] Wrote unit and E2E tests validating magic bytes, IDOR guards, double-processing prevention, and confirmation flow
+      **Next week:** SKU Churn Refactor and Phase P5 (Inventory module)
