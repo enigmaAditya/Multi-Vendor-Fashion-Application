@@ -2,14 +2,28 @@ import { z } from "zod";
 
 // OTP Request Schema
 export const OtpRequestSchema = z.object({
-  phone: z.string().min(10).max(15).regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format (E.164 expected)"),
+  phone: z
+    .string()
+    .min(10)
+    .max(15)
+    .regex(
+      /^\+?[1-9]\d{1,14}$/,
+      "Invalid phone number format (E.164 expected)",
+    ),
 });
 
 export type OtpRequest = z.infer<typeof OtpRequestSchema>;
 
 // OTP Verify Schema
 export const OtpVerifySchema = z.object({
-  phone: z.string().min(10).max(15).regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format (E.164 expected)"),
+  phone: z
+    .string()
+    .min(10)
+    .max(15)
+    .regex(
+      /^\+?[1-9]\d{1,14}$/,
+      "Invalid phone number format (E.164 expected)",
+    ),
   code: z.string().length(6).regex(/^\d+$/, "OTP must be a 6-digit number"),
 });
 

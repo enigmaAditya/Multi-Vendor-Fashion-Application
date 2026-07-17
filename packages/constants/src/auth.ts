@@ -8,4 +8,4 @@ export const AUTH_ERRORS = {
   RATE_LIMIT_EXCEEDED: "AUTH_RATE_LIMIT_EXCEEDED",
 } as const;
 
-export type AuthError = typeof AUTH_ERRORS[keyof typeof AUTH_ERRORS];
+export type AuthError = (typeof AUTH_ERRORS)[keyof typeof AUTH_ERRORS];
