@@ -201,7 +201,7 @@ export class AuthService {
 
     // Refresh Token (Signed JWT containing userId for reuse detection, valid for 7d)
     const rawRefreshToken = await this.jwtService.signAsync(
-      { sub: user.id, version: user.tokenVersion },
+      { sub: user.id, version: user.tokenVersion, jti: crypto.randomUUID() },
       {
         secret: process.env.JWT_REFRESH_SECRET || 'refresh-secret-key-12345',
         expiresIn: '7d',
