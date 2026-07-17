@@ -8,6 +8,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { MediaModule } from './media/media.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { OrdersModule } from './orders/orders.module';
+import { PayoutsModule } from './payouts/payouts.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { OrdersModule } from './orders/orders.module';
     MediaModule,
     InventoryModule,
     OrdersModule,
+    PayoutsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
