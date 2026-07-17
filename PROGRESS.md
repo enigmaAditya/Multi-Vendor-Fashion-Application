@@ -18,7 +18,7 @@
       **Next week:** finish wireframes C–I + seller/admin, ERD draft
       **Client update sent:** [date]
 
-## Week 3 — [2026-07-17]
+## Week 3 — [2026-07-17] (Identity Module — COMPLETE)
 
 **Plan:** Phase P3 (Identity module)
 **Done:**
