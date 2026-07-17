@@ -51,6 +51,14 @@ describe('Auth System (e2e)', () => {
 
   beforeEach(async () => {
     // Clear databases before each test to ensure isolation
+    await prisma.productAttributeValueMap.deleteMany({});
+    await prisma.sku.deleteMany({});
+    await prisma.productImage.deleteMany({});
+    await prisma.productVariant.deleteMany({});
+    await prisma.product.deleteMany({});
+    await prisma.category.deleteMany({});
+    await prisma.brand.deleteMany({});
+    await prisma.outboxEvent.deleteMany({});
     await prisma.refreshToken.deleteMany({});
     await prisma.otpRequest.deleteMany({});
     await prisma.oAuthAccount.deleteMany({});

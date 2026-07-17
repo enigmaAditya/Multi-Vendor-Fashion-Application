@@ -33,7 +33,28 @@ export class CatalogService {
     const suffix = crypto.randomBytes(3).toString('hex');
     return `${base}-${suffix}`;
   }
-
+  private serializeProduct<T>(product: T): T {
+    if (!product) return product;
+    const p = product as unknown as {
+      variants?: Array<{
+        skus?: Array<{
+          price: bigint;
+          mrp: bigint;
+        }>;
+      }>;
+    };
+    return {
+      ...p,
+      variants: p.variants?.map((v) => ({
+        ...v,
+        skus: v.skus?.map((s) => ({
+          ...s,
+          price: Number(s.price),
+          mrp: Number(s.mrp),
+        })),
+      })),
+    } as unknown as T;
+  }
   // --- Category ---
   async createCategory(dto: CreateCategoryDto) {
     const slug = dto.slug || this.generateSlug(dto.name);
@@ -172,7 +193,7 @@ export class CatalogService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // 1. Create product
       const product = await tx.product.create({
         data: {
@@ -266,6 +287,8 @@ export class CatalogService {
         },
       });
     });
+
+    return this.serializeProduct(result);
   }
 
   async updateProduct(id: string, sellerId: string, dto: UpdateProductDto) {
@@ -283,7 +306,7 @@ export class CatalogService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // 1. Update basic info
       const slug =
         dto.slug || (dto.name ? this.generateSlug(dto.name) : undefined);
@@ -388,6 +411,8 @@ export class CatalogService {
         },
       });
     });
+
+    return this.serializeProduct(result);
   }
 
   // --- Product Status Transitions ---
@@ -518,7 +543,7 @@ export class CatalogService {
       throw new HttpException('Product not found.', HttpStatus.NOT_FOUND);
     }
 
-    return product;
+    return this.serializeProduct(product);
   }
 
   async getProducts(query: ProductFilterQuery) {
@@ -657,7 +682,7 @@ export class CatalogService {
       const total = await this.prisma.product.count({ where });
 
       return {
-        products: sortedProducts,
+        products: sortedProducts.map((p) => this.serializeProduct(p)),
         total,
       };
     }
@@ -696,7 +721,7 @@ export class CatalogService {
     ]);
 
     return {
-      products,
+      products: products.map((p) => this.serializeProduct(p)),
       total,
     };
   }

@@ -173,6 +173,7 @@ describe('CatalogService', () => {
           name: 'Classic Tee',
           categoryId: 'non-existent',
           brandId: null,
+          attributes: [],
           variants: [],
         }),
       ).rejects.toThrow(BadRequestException);
@@ -194,6 +195,7 @@ describe('CatalogService', () => {
         name: 'Tee',
         categoryId: 'cat-1',
         brandId: null,
+        attributes: [],
         variants: [
           {
             color: 'Red',
