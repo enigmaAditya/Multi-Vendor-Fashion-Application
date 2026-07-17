@@ -21,6 +21,7 @@ model User {
   devices       Device[]
   products      Product[]
   skus          Sku[]
+  media         Media[]
 
   @@map("users")
 }
@@ -160,11 +161,38 @@ model Sku {
   @@map("skus")
 }
 
+enum MediaStatus {
+  PENDING_UPLOAD
+  UPLOADED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+model Media {
+  id            String        @id @default(uuid(7))
+  filename      String
+  contentType   String
+  storageKey    String        @unique
+  status        MediaStatus   @default(PENDING_UPLOAD)
+  processedUrls Json?
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productImage  ProductImage?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId])
+  @@map("media")
+}
+
 model ProductImage {
   id        String         @id @default(uuid(7))
   variantId String
   variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   url       String
+  mediaId   String?        @unique
+  media     Media?         @relation(fields: [mediaId], references: [id], onDelete: SetNull)
   isPrimary Boolean        @default(false)
   createdAt DateTime       @default(now())
 

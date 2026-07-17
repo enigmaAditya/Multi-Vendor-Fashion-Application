@@ -5,9 +5,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
-  imports: [PrismaModule, RedisModule, AuthModule, CatalogModule],
+  imports: [PrismaModule, RedisModule, AuthModule, CatalogModule, MediaModule],
   controllers: [AppController],
   providers: [AppService],
 })
