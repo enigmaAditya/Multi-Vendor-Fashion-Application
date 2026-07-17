@@ -91,6 +91,10 @@ describe('Inventory System (e2e)', () => {
 
   beforeEach(async () => {
     // Clear databases in ordering order (Cascade deletes where possible or manually)
+    await prisma.commissionLedger.deleteMany({});
+    await prisma.payout.deleteMany({});
+    await prisma.sellerLinkedAccount.deleteMany({});
+    await prisma.commissionRule.deleteMany({});
     await prisma.paymentWebhookLog.deleteMany({});
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});

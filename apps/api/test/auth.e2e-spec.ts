@@ -51,6 +51,10 @@ describe('Auth System (e2e)', () => {
 
   beforeEach(async () => {
     // Clear databases before each test to ensure isolation
+    await prisma.commissionLedger.deleteMany({});
+    await prisma.payout.deleteMany({});
+    await prisma.sellerLinkedAccount.deleteMany({});
+    await prisma.commissionRule.deleteMany({});
     await prisma.paymentWebhookLog.deleteMany({});
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});

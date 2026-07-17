@@ -77,6 +77,10 @@ describe('Orders & Checkout System (e2e)', () => {
 
   beforeEach(async () => {
     // Clean up
+    await prisma.commissionLedger.deleteMany({});
+    await prisma.payout.deleteMany({});
+    await prisma.sellerLinkedAccount.deleteMany({});
+    await prisma.commissionRule.deleteMany({});
     await prisma.paymentWebhookLog.deleteMany({});
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});
@@ -231,7 +235,8 @@ describe('Orders & Checkout System (e2e)', () => {
       mockOrderCounter++;
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ id: `order_gw_mock_${mockOrderCounter}` }),
+        json: () =>
+          Promise.resolve({ id: `order_gw_mock_${mockOrderCounter}` }),
       });
     });
 
@@ -245,7 +250,11 @@ describe('Orders & Checkout System (e2e)', () => {
       })
       .expect(201);
 
-    const { reservationCode, orderId, gatewayOrderId: mockOrderId1 } = checkoutRes.body;
+    const {
+      reservationCode,
+      orderId,
+      gatewayOrderId: mockOrderId1,
+    } = checkoutRes.body;
 
     // 2. Simulate payment.captured event webhook
     const webhookPayload = {
