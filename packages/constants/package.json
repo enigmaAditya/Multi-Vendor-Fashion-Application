@@ -1,0 +1,19 @@
+{
+  "name": "@marketplace/constants",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "typecheck": "pnpm run check-types",
+    "test": "echo 'no tests yet' && exit 0"
+  },
+  "devDependencies": {
+    "@marketplace/eslint-config": "workspace:*",
+    "@marketplace/typescript-config": "workspace:*",
+    "typescript": "5.9.2"
+  }
+}

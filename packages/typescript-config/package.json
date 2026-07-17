@@ -1,0 +1,12 @@
+{
+  "name": "@marketplace/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "echo 'no tests yet' && exit 0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
