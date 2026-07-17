@@ -144,31 +144,33 @@ export class InventoryService implements OnModuleDestroy {
     quantity: number,
     reservationCode: string,
     ttlSeconds = 900, // 15 mins default
+    tx?: Prisma.TransactionClient,
   ) {
+    const client = tx || this.prisma;
     if (quantity <= 0) {
       throw new BadRequestException('Reservation quantity must be positive.');
     }
 
     // Check SKU and Warehouse exist
-    const sku = await this.prisma.sku.findUnique({ where: { id: skuId } });
+    const sku = await client.sku.findUnique({ where: { id: skuId } });
     if (!sku) throw new NotFoundException('SKU not found.');
 
-    const warehouse = await this.prisma.warehouse.findUnique({
+    const warehouse = await client.warehouse.findUnique({
       where: { id: warehouseId },
     });
     if (!warehouse) throw new NotFoundException('Warehouse not found.');
 
     // Enforce unique reservation code to prevent double claims
-    const existingRes = await this.prisma.inventoryReservation.findUnique({
+    const existingRes = await client.inventoryReservation.findFirst({
       where: { reservationCode },
     });
     if (existingRes) {
       throw new BadRequestException('Reservation code already used.');
     }
 
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const runOperations = async (runner: Prisma.TransactionClient) => {
       // 1. Double check SkuInventory row exists, if not initialize it (with 0 onHand)
-      await tx.skuInventory.upsert({
+      await runner.skuInventory.upsert({
         where: {
           warehouseId_skuId: { warehouseId, skuId },
         },
@@ -182,7 +184,7 @@ export class InventoryService implements OnModuleDestroy {
       });
 
       // 2. Perform atomic row lock update claim using correctly double-quoted PostgreSQL camelCase fields
-      const affected = await tx.$executeRaw`
+      const affected = await runner.$executeRaw`
         UPDATE sku_inventories
         SET "reserved" = "reserved" + ${quantity}
         WHERE "skuId" = ${skuId}
@@ -195,7 +197,7 @@ export class InventoryService implements OnModuleDestroy {
       }
 
       // 3. Save reservation record
-      const reservation = await tx.inventoryReservation.create({
+      const reservation = await runner.inventoryReservation.create({
         data: {
           skuId,
           warehouseId,
@@ -208,7 +210,7 @@ export class InventoryService implements OnModuleDestroy {
       });
 
       // 4. Log to append-only ledger
-      await tx.inventoryLedger.create({
+      await runner.inventoryLedger.create({
         data: {
           skuId,
           warehouseId,
@@ -227,7 +229,13 @@ export class InventoryService implements OnModuleDestroy {
       );
 
       return reservation;
-    });
+    };
+
+    if (tx) {
+      return runOperations(tx);
+    } else {
+      return this.prisma.$transaction(runOperations);
+    }
   }
 
   // --- Release Reservation ---
@@ -235,26 +243,37 @@ export class InventoryService implements OnModuleDestroy {
     userId: string,
     reservationCode: string,
     isAdmin = false,
+    tx?: Prisma.TransactionClient,
   ) {
-    const reservation = await this.prisma.inventoryReservation.findUnique({
+    const client = tx || this.prisma;
+
+    const reservations = await client.inventoryReservation.findMany({
       where: { reservationCode },
     });
 
-    if (!reservation) {
+    if (reservations.length === 0) {
       throw new NotFoundException('Reservation code not found.');
     }
 
-    if (reservation.status !== 'PENDING') {
+    // Verify ownership
+    if (!isAdmin) {
+      for (const res of reservations) {
+        if (res.userId !== userId) {
+          throw new ForbiddenException('You do not own this reservation.');
+        }
+      }
+    }
+
+    const pendingReservations = reservations.filter(
+      (r) => r.status === 'PENDING',
+    );
+    if (pendingReservations.length === 0) {
       return { success: false, message: 'Reservation already finalized.' };
     }
 
-    if (!isAdmin && reservation.userId !== userId) {
-      throw new ForbiddenException('You do not own this reservation.');
-    }
-
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const runOperations = async (runner: Prisma.TransactionClient) => {
       // Claim status transition atomically
-      const affected = await tx.inventoryReservation.updateMany({
+      const affected = await runner.inventoryReservation.updateMany({
         where: {
           reservationCode,
           status: 'PENDING',
@@ -264,58 +283,82 @@ export class InventoryService implements OnModuleDestroy {
         },
       });
 
-      if (affected.count === 0) {
+      if (affected.count !== pendingReservations.length) {
         return { success: false, message: 'Reservation already finalized.' };
       }
 
-      // Decrement reserved stock atomically
-      await tx.skuInventory.update({
-        where: {
-          warehouseId_skuId: {
-            warehouseId: reservation.warehouseId,
-            skuId: reservation.skuId,
+      // Decrement reserved stock atomically for all claimed reservations
+      for (const reservation of pendingReservations) {
+        await runner.skuInventory.update({
+          where: {
+            warehouseId_skuId: {
+              warehouseId: reservation.warehouseId,
+              skuId: reservation.skuId,
+            },
           },
-        },
-        data: {
-          reserved: { decrement: reservation.quantity },
-        },
-      });
+          data: {
+            reserved: { decrement: reservation.quantity },
+          },
+        });
 
-      // Log to ledger
-      await tx.inventoryLedger.create({
-        data: {
-          skuId: reservation.skuId,
-          warehouseId: reservation.warehouseId,
-          quantityDelta: 0,
-          reservedDelta: -reservation.quantity,
-          type: 'RESERVATION_RELEASE',
-          referenceId: reservation.id,
-        },
-      });
+        // Log to ledger
+        await runner.inventoryLedger.create({
+          data: {
+            skuId: reservation.skuId,
+            warehouseId: reservation.warehouseId,
+            quantityDelta: 0,
+            reservedDelta: -reservation.quantity,
+            type: 'RESERVATION_RELEASE',
+            referenceId: reservation.id,
+          },
+        });
+      }
 
       return { success: true, message: 'Reservation successfully released.' };
-    });
+    };
+
+    if (tx) {
+      return runOperations(tx);
+    } else {
+      return this.prisma.$transaction(runOperations);
+    }
   }
 
   // --- Commit Reservation (Fulfill Order) ---
-  async commitReservation(reservationCode: string, orderId: string) {
-    const reservation = await this.prisma.inventoryReservation.findUnique({
+  async commitReservation(
+    reservationCode: string,
+    orderId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+
+    const reservations = await client.inventoryReservation.findMany({
       where: { reservationCode },
     });
 
-    if (!reservation) {
+    if (reservations.length === 0) {
       throw new NotFoundException('Reservation not found.');
     }
 
-    if (reservation.status !== 'PENDING') {
+    const pendingReservations = reservations.filter(
+      (r) => r.status === 'PENDING',
+    );
+    if (pendingReservations.length === 0) {
       throw new BadRequestException(
-        `Reservation is no longer active (status: ${reservation.status}).`,
+        `Reservation is no longer active (none are PENDING).`,
       );
     }
 
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Verify that ALL matching reservations are indeed PENDING (no partial checkouts allowed)
+    if (pendingReservations.length !== reservations.length) {
+      throw new BadRequestException(
+        `Reservation is no longer active (some rows already completed or released).`,
+      );
+    }
+
+    const runOperations = async (runner: Prisma.TransactionClient) => {
       // Claim status transition atomically
-      const affected = await tx.inventoryReservation.updateMany({
+      const affected = await runner.inventoryReservation.updateMany({
         where: {
           reservationCode,
           status: 'PENDING',
@@ -326,39 +369,47 @@ export class InventoryService implements OnModuleDestroy {
         },
       });
 
-      if (affected.count === 0) {
+      if (affected.count !== pendingReservations.length) {
         throw new BadRequestException(
           'Reservation is no longer active (expired or processed).',
         );
       }
 
-      // Deduct both physical onHand and reserved stock atomically
-      await tx.skuInventory.update({
-        where: {
-          warehouseId_skuId: {
-            warehouseId: reservation.warehouseId,
-            skuId: reservation.skuId,
+      for (const reservation of pendingReservations) {
+        // Deduct both physical onHand and reserved stock atomically
+        await runner.skuInventory.update({
+          where: {
+            warehouseId_skuId: {
+              warehouseId: reservation.warehouseId,
+              skuId: reservation.skuId,
+            },
           },
-        },
-        data: {
-          onHand: { decrement: reservation.quantity },
-          reserved: { decrement: reservation.quantity },
-        },
-      });
+          data: {
+            onHand: { decrement: reservation.quantity },
+            reserved: { decrement: reservation.quantity },
+          },
+        });
 
-      // Log to ledger
-      await tx.inventoryLedger.create({
-        data: {
-          skuId: reservation.skuId,
-          warehouseId: reservation.warehouseId,
-          quantityDelta: -reservation.quantity,
-          reservedDelta: -reservation.quantity,
-          type: 'RESERVATION_FULFILL',
-          referenceId: orderId,
-        },
-      });
+        // Log to ledger
+        await runner.inventoryLedger.create({
+          data: {
+            skuId: reservation.skuId,
+            warehouseId: reservation.warehouseId,
+            quantityDelta: -reservation.quantity,
+            reservedDelta: -reservation.quantity,
+            type: 'RESERVATION_FULFILL',
+            referenceId: orderId,
+          },
+        });
+      }
 
-      return { success: true, reservationId: reservation.id };
-    });
+      return { success: true };
+    };
+
+    if (tx) {
+      return runOperations(tx);
+    } else {
+      return this.prisma.$transaction(runOperations);
+    }
   }
 }

@@ -70,3 +70,29 @@
 - [x] Added scheduled hourly sweeper clearing stale `PENDING_UPLOAD` objects and records
 - [x] Wrote unit and E2E tests validating magic bytes, IDOR guards, double-processing prevention, and confirmation flow
       **Next week:** SKU Churn Refactor (Phase P4)
+
+## Week 6 — [2026-07-18] (Inventory & Stock Module — COMPLETE)
+
+**Plan:** Phase P4 (Inventory & Stock module)
+**Done:**
+
+- [x] Implemented SKU inventory schema and migrations mapping warehouse inventory levels and append-only ledger entries (ADR-007)
+- [x] Built atomic concurrency-safe reservation holds with raw SQL lock checks (`onHand - reserved >= qty`)
+- [x] Threaded transactional client support to enforce atomic state movements without nested transaction blocks
+- [x] Added automated BullMQ queueing for reservation expiry sweeps reverting holds to stock pools
+- [x] Guarded SKUs from deletion by blocking catalog adjustments when active warehouses contain positive stock
+- [x] Wrote unit and E2E integration tests validating stock replenishments, concurrency claims, hold expiration, and SKU deletion guards
+
+## Week 7 — [2026-07-18] (Orders & Checkout Module — COMPLETE)
+
+**Plan:** Phase P5 (Orders & Checkout module)
+**Done:**
+
+- [x] Created Order, SubOrder, OrderItem, and Webhook Log database models with multi-item composite unique index constraints
+- [x] Configured native NestJS raw request body parser options enabling secure timing-safe webhook HMAC checks
+- [x] Built server-side pricing recomputation from database records to prevent client-side cart price tampering exploits
+- [x] Structured multi-seller cart splitting creating distinct sub-orders and distributing item rows per seller
+- [x] Implemented atomic webhook capture transactions checking idempotency logs and committing stock allocations (ADR-005)
+- [x] Handled captured webhook failures and lost lock races by transitioning orders to `REFUND_REQUIRED` and emitting outbox events
+- [x] Wrote unit and E2E integration tests validating amount-tampering blocks, duplicate webhook idempotency, and expired hold outcomes
+

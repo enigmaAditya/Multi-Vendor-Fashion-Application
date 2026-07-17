@@ -119,6 +119,10 @@ describe('Media System (e2e)', () => {
 
   afterAll(async () => {
     // Cleanup
+    await prisma.paymentWebhookLog.deleteMany({});
+    await prisma.orderItem.deleteMany({});
+    await prisma.subOrder.deleteMany({});
+    await prisma.order.deleteMany({});
     await prisma.inventoryReservation.deleteMany({});
     await prisma.inventoryLedger.deleteMany({});
     await prisma.skuInventory.deleteMany({});

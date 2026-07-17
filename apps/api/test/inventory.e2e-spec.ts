@@ -91,6 +91,10 @@ describe('Inventory System (e2e)', () => {
 
   beforeEach(async () => {
     // Clear databases in ordering order (Cascade deletes where possible or manually)
+    await prisma.paymentWebhookLog.deleteMany({});
+    await prisma.orderItem.deleteMany({});
+    await prisma.subOrder.deleteMany({});
+    await prisma.order.deleteMany({});
     await prisma.inventoryReservation.deleteMany({});
     await prisma.inventoryLedger.deleteMany({});
     await prisma.skuInventory.deleteMany({});
@@ -268,7 +272,7 @@ describe('Inventory System (e2e)', () => {
     expect(restoredInv?.onHand).toBe(1);
     expect(restoredInv?.reserved).toBe(0);
 
-    const restoredRes = await prisma.inventoryReservation.findUnique({
+    const restoredRes = await prisma.inventoryReservation.findFirst({
       where: { reservationCode: successfulCode },
     });
     expect(restoredRes?.status).toBe('RELEASED');

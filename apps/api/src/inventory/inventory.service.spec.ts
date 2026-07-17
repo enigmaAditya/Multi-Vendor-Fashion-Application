@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryService } from './inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Queue } from 'bullmq';
 import {
   BadRequestException,
   NotFoundException,
@@ -28,6 +27,8 @@ describe('InventoryService', () => {
     },
     inventoryReservation: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -108,7 +109,7 @@ describe('InventoryService', () => {
     it('should atomically reserve stock and schedule TTL task', async () => {
       mockPrisma.sku.findUnique.mockResolvedValue({ id: 'sku-1' });
       mockPrisma.warehouse.findUnique.mockResolvedValue({ id: 'wh-1' });
-      mockPrisma.inventoryReservation.findUnique.mockResolvedValue(null);
+      mockPrisma.inventoryReservation.findFirst.mockResolvedValue(null);
       mockPrisma.$executeRaw.mockResolvedValue(1); // Row claimed
       mockPrisma.inventoryReservation.create.mockResolvedValue({
         id: 'res-1',
@@ -147,7 +148,7 @@ describe('InventoryService', () => {
     it('should throw BadRequestException if stock is insufficient', async () => {
       mockPrisma.sku.findUnique.mockResolvedValue({ id: 'sku-1' });
       mockPrisma.warehouse.findUnique.mockResolvedValue({ id: 'wh-1' });
-      mockPrisma.inventoryReservation.findUnique.mockResolvedValue(null);
+      mockPrisma.inventoryReservation.findFirst.mockResolvedValue(null);
       mockPrisma.$executeRaw.mockResolvedValue(0); // 0 rows affected
 
       await expect(
@@ -158,14 +159,16 @@ describe('InventoryService', () => {
 
   describe('releaseReservation', () => {
     it('should atomically flip status and restore reserved stock', async () => {
-      mockPrisma.inventoryReservation.findUnique.mockResolvedValue({
-        id: 'res-1',
-        skuId: 'sku-1',
-        warehouseId: 'wh-1',
-        userId: 'user-1',
-        quantity: 3,
-        status: 'PENDING',
-      });
+      mockPrisma.inventoryReservation.findMany.mockResolvedValue([
+        {
+          id: 'res-1',
+          skuId: 'sku-1',
+          warehouseId: 'wh-1',
+          userId: 'user-1',
+          quantity: 3,
+          status: 'PENDING',
+        },
+      ]);
       mockPrisma.inventoryReservation.updateMany.mockResolvedValue({
         count: 1,
       });
@@ -191,14 +194,16 @@ describe('InventoryService', () => {
 
   describe('commitReservation', () => {
     it('should commit successfully and decrement both onHand and reserved stock', async () => {
-      mockPrisma.inventoryReservation.findUnique.mockResolvedValue({
-        id: 'res-1',
-        skuId: 'sku-1',
-        warehouseId: 'wh-1',
-        userId: 'user-1',
-        quantity: 5,
-        status: 'PENDING',
-      });
+      mockPrisma.inventoryReservation.findMany.mockResolvedValue([
+        {
+          id: 'res-1',
+          skuId: 'sku-1',
+          warehouseId: 'wh-1',
+          userId: 'user-1',
+          quantity: 5,
+          status: 'PENDING',
+        },
+      ]);
       mockPrisma.inventoryReservation.updateMany.mockResolvedValue({
         count: 1,
       });
@@ -226,10 +231,16 @@ describe('InventoryService', () => {
     });
 
     it('should throw BadRequestException if reservation lost the status race', async () => {
-      mockPrisma.inventoryReservation.findUnique.mockResolvedValue({
-        id: 'res-1',
-        status: 'PENDING',
-      });
+      mockPrisma.inventoryReservation.findMany.mockResolvedValue([
+        {
+          id: 'res-1',
+          skuId: 'sku-1',
+          warehouseId: 'wh-1',
+          userId: 'user-1',
+          quantity: 5,
+          status: 'PENDING',
+        },
+      ]);
       mockPrisma.inventoryReservation.updateMany.mockResolvedValue({
         count: 0,
       });
