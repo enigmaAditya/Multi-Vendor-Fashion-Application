@@ -86,6 +86,7 @@ model Category {
   products  Product[]
 
   @@index([parentId])
+  @@index([path])
   @@map("categories")
 }
 
@@ -104,14 +105,16 @@ model Product {
   id          String                  @id @default(uuid(7))
   name        String
   slug        String                  @unique
-  description String
+  description String?
   status      String                  @default("DRAFT")
-  categoryId  String
-  category    Category                @relation(fields: [categoryId], references: [id])
-  brandId     String
-  brand       Brand                   @relation(fields: [brandId], references: [id])
+  categoryId  String?
+  category    Category?               @relation(fields: [categoryId], references: [id])
+  brandId     String?
+  brand       Brand?                  @relation(fields: [brandId], references: [id])
   sellerId    String
   seller      User                    @relation(fields: [sellerId], references: [id])
+  sizeChartId String?
+  sizeChart   SizeChart?              @relation(fields: [sizeChartId], references: [id])
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt
   variants    ProductVariant[]
@@ -121,6 +124,7 @@ model Product {
   @@index([brandId])
   @@index([status])
   @@index([sellerId])
+  @@index([sizeChartId])
   @@map("products")
 }
 
@@ -203,11 +207,12 @@ model ProductAttributeValueMap {
 }
 
 model SizeChart {
-  id        String   @id @default(uuid(7))
+  id        String    @id @default(uuid(7))
   name      String
   chartData Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
 
   @@map("size_charts")
 }
