@@ -162,7 +162,15 @@ export class MediaProcessor implements OnModuleInit, OnModuleDestroy {
         });
       });
 
-      await this.storage.deleteObject(media.storageKey);
+      try {
+        await this.storage.deleteObject(media.storageKey);
+      } catch (delErr: unknown) {
+        const delError = delErr as Error;
+        this.logger.warn(
+          `Original raw file cleanup failed for media ${mediaId} (storage key: ${media.storageKey}): ${delError.message}. Object is orphaned but processing succeeded.`,
+          delError.stack,
+        );
+      }
       this.logger.log(`Media ID ${mediaId} processed successfully.`);
     } catch (err: unknown) {
       const error = err as Error;

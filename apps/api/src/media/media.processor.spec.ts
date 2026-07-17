@@ -105,9 +105,7 @@ describe('MediaProcessor', () => {
         new Error('S3 delete object connection timeout'),
       );
 
-      await expect(processor.processImage(mediaId)).rejects.toThrow(
-        'S3 delete object connection timeout',
-      );
+      await expect(processor.processImage(mediaId)).resolves.not.toThrow();
 
       expect(mockPrisma.media.update).toHaveBeenCalled();
       expect(mockPrisma.outboxEvent.create).toHaveBeenCalledTimes(1);
