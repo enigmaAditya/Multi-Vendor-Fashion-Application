@@ -527,6 +527,37 @@ export class CatalogService {
           }
         }
 
+        // Verify SKU deletion safety (Note 3 / 6)
+        const allSkusToDelete = [...skusToDelete];
+        if (removedVariantIds.length > 0) {
+          const removedVariantSkus = product.variants
+            .filter((v) => removedVariantIds.includes(v.id))
+            .flatMap((v) => v.skus.map((s) => s.id));
+          allSkusToDelete.push(...removedVariantSkus);
+        }
+
+        if (allSkusToDelete.length > 0) {
+          const linkedInventory = await tx.skuInventory.count({
+            where: { skuId: { in: allSkusToDelete } },
+          });
+          const linkedReservations = await tx.inventoryReservation.count({
+            where: { skuId: { in: allSkusToDelete } },
+          });
+          const linkedLedgers = await tx.inventoryLedger.count({
+            where: { skuId: { in: allSkusToDelete } },
+          });
+
+          if (
+            linkedInventory > 0 ||
+            linkedReservations > 0 ||
+            linkedLedgers > 0
+          ) {
+            throw new BadRequestException(
+              'Cannot delete SKUs that have active stock records or reservations. Please adjust stock first.',
+            );
+          }
+        }
+
         // Execute DB deletes (ordering: children first then parents)
         if (skusToDelete.length > 0) {
           await tx.sku.deleteMany({
