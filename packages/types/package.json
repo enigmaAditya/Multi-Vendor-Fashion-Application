@@ -15,5 +15,8 @@
     "@marketplace/eslint-config": "workspace:*",
     "@marketplace/typescript-config": "workspace:*",
     "typescript": "5.9.2"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }

@@ -5,8 +5,8 @@
 ## Week 1 — [dates]
 **Plan:** Part 2 (wireframes + ADRs + skeleton)
 **Done:**
-- [ ] ADR-001..008 committed (dates filled)
-- [ ] Repo scaffold, docker-compose up, CI green
+- [x] ADR-001..008 committed (dates filled)
+- [x] Repo scaffold, docker-compose up, CI green
 - [ ] Wireframes: A1–A3, B1–B4 …
 **Blocked / client dependencies triggered:**
 - [ ] Razorpay + Route application sent (date: )
