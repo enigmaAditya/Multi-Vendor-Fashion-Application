@@ -34,3 +34,22 @@
 - [x] Wrote passed E2E integration tests validating the complete authentication lifecycle against active Postgres & Redis
       **Known-Open / Deferred Items:** - [ ] Google OAuth: Currently a mock/stub that simulates idToken validation. Needs real Google API token verification before production. - [ ] RBAC guards: Route-layer Role-Based Access Control (@Roles() / JwtAuthGuard) are deferred to seller/admin modules.
       **Next week:** Phase P4 (Catalog and Inventory modules)
+
+## Week 4 — [2026-07-17] (Catalog Module — COMPLETE)
+
+**Plan:** Phase P4 (Catalog module)
+**Done:**
+
+- [x] Defined Zod validation schemas and types for Categories, Brands, Products, Variants, SKUs, and Moderation in `@marketplace/types` and `@marketplace/constants`
+- [x] Implemented Category materialized path calculations for hierarchy trees, indexed for prefix queries
+- [x] Created database schema and forward migrations mapping Product, ProductVariant, Sku, ProductImage, SizeChart, and OutboxEvent models with UUIDv7
+- [x] Enabled flexible seller drafts by allowing optional categories, brands, and descriptions on products
+- [x] Implemented strict draft completeness check gating transitions from `DRAFT` to `PENDING_REVIEW`
+- [x] Built state-machine transitions (`SUBMIT`, `APPROVE`, `REJECT`, `SUSPEND`) in `CatalogService` following ADR-005 rules
+- [x] Enforced seller ownership checks and SKU seller consistency assertions on product mutations
+- [x] Implemented atomic multi-entity transaction creates and updates with Outbox event recordings (ADR-006)
+- [x] Handled BigInt outbound serialization converting prices/MRPs to JavaScript Numbers for Express compatibility
+- [x] Implemented JwtAuthGuard and RolesGuard to enforce role-based access control (RBAC) across catalog endpoints
+- [x] Wrote 21 passed unit tests covering materialized paths, cyclic loops prevention, draft validations, and moderation paths
+- [x] Wrote passed E2E integration tests validating category trees, drafts completeness checks, seller isolation, and admin moderation flows
+      **Next week:** Phase P5 (Inventory and Orders module)
