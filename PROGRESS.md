@@ -53,7 +53,7 @@
 - [x] Wrote 21 passed unit tests covering materialized paths, cyclic loops prevention, draft validations, and moderation paths
 - [x] Wrote passed E2E integration tests validating category trees, drafts completeness checks, seller isolation, and admin moderation flows
       **Known-Open / Deferred Items:** - [ ] SKU Churn Refactor: updateProduct currently deletes and recreates all variants and SKUs on every edit. This must be refactored to perform a diff/upsert before implementing the Inventory module to prevent orphaning inventory and order reference keys. - [ ] Price-Sort Total Count Parity: The total pagination count for price-sorted queries is computed via Prisma where rather than the dynamic raw SQL, creating boundary edge cases on price range filters. Unify this under a nested count query in Phase P8 before Search/PLP polish.
-      **Next week:** Phase P5 (Inventory and Orders module)
+      **Next week:** Media Module (Phase P3 Core)
 
 ## Week 5 — [2026-07-17] (Media Module — COMPLETE)
 
@@ -69,4 +69,4 @@
 - [x] Emitted `media.processed` events through outbox inside completion transactions (ADR-006)
 - [x] Added scheduled hourly sweeper clearing stale `PENDING_UPLOAD` objects and records
 - [x] Wrote unit and E2E tests validating magic bytes, IDOR guards, double-processing prevention, and confirmation flow
-      **Next week:** SKU Churn Refactor and Phase P5 (Inventory module)
+      **Next week:** SKU Churn Refactor (Phase P4)
