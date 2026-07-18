@@ -22,6 +22,14 @@ describe('LogisticsService', () => {
     },
     inventoryReservation: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+    },
+    skuInventory: {
+      update: jest.fn(),
+    },
+    inventoryLedger: {
+      create: jest.fn(),
     },
     shipmentWebhookLog: {
       create: jest.fn(),
@@ -195,6 +203,7 @@ describe('LogisticsService', () => {
       mockPrisma.subOrder.findFirst.mockResolvedValue({
         id: 'sub-order-1',
         amount: 5000n,
+        items: [],
       });
 
       mockPrisma.shipmentWebhookLog.create.mockResolvedValue({ id: 'log-1' });
@@ -217,6 +226,7 @@ describe('LogisticsService', () => {
       mockPrisma.subOrder.findFirst.mockResolvedValue({
         id: 'sub-order-1',
         amount: 5000n,
+        items: [],
       });
       mockPrisma.shipmentWebhookLog.create.mockResolvedValue({ id: 'log-1' });
       mockPayoutsService.cancelPayout.mockRejectedValue(

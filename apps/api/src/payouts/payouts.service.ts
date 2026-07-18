@@ -123,46 +123,6 @@ export class PayoutsService implements OnModuleDestroy {
         );
       }
 
-      // Restock items from active reservations
-      for (const item of subOrder.items) {
-        const reservations = await runner.inventoryReservation.findMany({
-          where: {
-            orderId: subOrder.orderId,
-            skuId: item.skuId,
-            status: 'COMPLETED',
-          },
-        });
-
-        for (const res of reservations) {
-          await runner.skuInventory.update({
-            where: {
-              warehouseId_skuId: {
-                warehouseId: res.warehouseId,
-                skuId: res.skuId,
-              },
-            },
-            data: {
-              onHand: { increment: res.quantity },
-            },
-          });
-
-          await runner.inventoryLedger.create({
-            data: {
-              skuId: res.skuId,
-              warehouseId: res.warehouseId,
-              quantityDelta: res.quantity,
-              reservedDelta: 0,
-              type: 'RETURN_RESTOCK',
-            },
-          });
-
-          await runner.inventoryReservation.update({
-            where: { id: res.id },
-            data: { status: 'RETURNED' },
-          });
-        }
-      }
-
       return { success: true };
     };
 

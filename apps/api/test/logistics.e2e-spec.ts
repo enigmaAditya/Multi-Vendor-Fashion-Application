@@ -381,7 +381,7 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       expect(inv.onHand).toBe(100);
 
       const ledger = await prisma.inventoryLedger.findFirstOrThrow({
-        where: { type: 'RETURN_RESTOCK' },
+        where: { type: 'RETURN_RESTOCK', referenceId: subOrderId },
       });
       expect(ledger.quantityDelta).toBe(2);
 
@@ -392,6 +392,8 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
     });
 
     it('should flag sub-order as CLAWBACK_REQUIRED and emit outbox alerts during post-settlement RTO events', async () => {
+      const warehouse = await prisma.warehouse.findFirstOrThrow();
+
       // 1. Setup settled sub-order
       await prisma.order.create({
         data: {
@@ -417,6 +419,36 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
         },
       });
 
+      await prisma.orderItem.create({
+        data: {
+          subOrderId,
+          skuId,
+          quantity: 2,
+          price: 150000n,
+          mrp: 200000n,
+        },
+      });
+
+      // Complete reservation
+      await prisma.inventoryReservation.create({
+        data: {
+          skuId,
+          warehouseId: warehouse.id,
+          userId: buyerId,
+          orderId,
+          reservationCode: 'res-888',
+          quantity: 2,
+          expiresAt: new Date(Date.now() + 60000),
+          status: 'COMPLETED',
+        },
+      });
+
+      // Force inventory decrement to simulate fulfillment deduction (onHand: 100 - 2 = 98)
+      await prisma.skuInventory.update({
+        where: { warehouseId_skuId: { warehouseId: warehouse.id, skuId } },
+        data: { onHand: 98 },
+      });
+
       // 2. Fire RTO Webhook
       await request(app.getHttpServer() as App)
         .post('/logistics/shiprocket-webhook')
@@ -427,7 +459,7 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
         })
         .expect(201);
 
-      // 3. Verify status flagged and outbox alert written
+      // 3. Verify status flagged, outbox alert written, stock restocked, and ledger updated
       const subOrder = await prisma.subOrder.findUniqueOrThrow({
         where: { id: subOrderId },
       });
@@ -439,6 +471,21 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       const parsedPayload = JSON.parse(alert.payload as string);
       expect(parsedPayload.subOrderId).toBe(subOrderId);
       expect(parsedPayload.amount).toBe('300000');
+
+      const inv = await prisma.skuInventory.findUniqueOrThrow({
+        where: { warehouseId_skuId: { warehouseId: warehouse.id, skuId } },
+      });
+      expect(inv.onHand).toBe(100);
+
+      const ledger = await prisma.inventoryLedger.findFirstOrThrow({
+        where: { type: 'RETURN_RESTOCK', referenceId: subOrderId },
+      });
+      expect(ledger.quantityDelta).toBe(2);
+
+      const res = await prisma.inventoryReservation.findFirstOrThrow({
+        where: { reservationCode: 'res-888' },
+      });
+      expect(res.status).toBe('RETURNED');
     });
   });
 });
