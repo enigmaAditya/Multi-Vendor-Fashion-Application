@@ -13,6 +13,7 @@ export class UnconfirmedSweeperService
 {
   private readonly logger = new Logger(UnconfirmedSweeperService.name);
   private intervalId: NodeJS.Timeout;
+  private timeoutId: NodeJS.Timeout;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -26,7 +27,7 @@ export class UnconfirmedSweeperService
       void this.sweep();
     }, oneHour);
     // Run an initial sweep 10 seconds after boot
-    setTimeout(() => {
+    this.timeoutId = setTimeout(() => {
       void this.sweep();
     }, 10000);
   }
@@ -34,6 +35,9 @@ export class UnconfirmedSweeperService
   onModuleDestroy() {
     if (this.intervalId) {
       clearInterval(this.intervalId);
+    }
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
     }
   }
 

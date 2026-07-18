@@ -40,16 +40,33 @@ describe('PayoutsService', () => {
     $transaction: jest.fn((callback) => callback(mockPrisma)),
   };
 
+  const mockQueue: any = {
+    add: jest.fn(),
+    close: jest.fn(),
+  };
+
+  let moduleRef: TestingModule;
+  let originalQueue: any;
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    moduleRef = await Test.createTestingModule({
       providers: [
         PayoutsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<PayoutsService>(PayoutsService);
+    service = moduleRef.get<PayoutsService>(PayoutsService);
+    originalQueue = (service as any).payoutsQueue;
+    (service as any).payoutsQueue = mockQueue;
     jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    if (originalQueue) {
+      await originalQueue.close();
+    }
+    await moduleRef.close();
   });
 
   describe('linkSellerAccount', () => {
