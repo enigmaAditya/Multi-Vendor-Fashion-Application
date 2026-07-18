@@ -233,6 +233,11 @@ export class PayoutsService implements OnModuleDestroy {
       }
     }
 
+    if (!payout) {
+      throw new Error('Payout record was not initialized correctly.');
+    }
+    const stablePayout = payout;
+
     // 4. Verify Active Seller Linked Account
     const linkedAccount = await this.prisma.sellerLinkedAccount.findUnique({
       where: { sellerId },
@@ -244,7 +249,7 @@ export class PayoutsService implements OnModuleDestroy {
       );
       await this.prisma.$transaction(async (tx) => {
         await tx.payout.update({
-          where: { id: payout.id },
+          where: { id: stablePayout.id },
           data: { status: 'BLOCKED' },
         });
         await tx.subOrder.update({
@@ -266,12 +271,14 @@ export class PayoutsService implements OnModuleDestroy {
     }
 
     // Reset status to PENDING if resuming from BLOCKED now that account is active
-    if (payout.status === 'BLOCKED') {
-      payout = await this.prisma.payout.update({
-        where: { id: payout.id },
+    let currentPayoutState = stablePayout;
+    if (stablePayout.status === 'BLOCKED') {
+      currentPayoutState = await this.prisma.payout.update({
+        where: { id: stablePayout.id },
         data: { status: 'PENDING' },
       });
     }
+    const finalPayout = currentPayoutState;
 
     // 5. Call External API (Razorpay Route Payout) - OUTSIDE of database transaction
     let gatewayTransferId = '';
@@ -299,7 +306,7 @@ export class PayoutsService implements OnModuleDestroy {
           currency: 'INR',
           notes: {
             subOrderId,
-            payoutId: payout.id,
+            payoutId: finalPayout.id,
           },
         }),
       });
@@ -319,14 +326,14 @@ export class PayoutsService implements OnModuleDestroy {
     }
 
     if (!callSucceeded) {
-      const nextRetryCount = payout.retryCount + 1;
+      const nextRetryCount = finalPayout.retryCount + 1;
       const apiMsg =
         apiError instanceof Error ? apiError.message : String(apiError);
       if (nextRetryCount >= 5) {
         // Move to terminal FAILED_PERMANENT state (Fix 3)
         await this.prisma.$transaction(async (tx) => {
           await tx.payout.update({
-            where: { id: payout.id },
+            where: { id: finalPayout.id },
             data: { status: 'FAILED_PERMANENT', retryCount: nextRetryCount },
           });
           await tx.subOrder.update({
@@ -338,7 +345,7 @@ export class PayoutsService implements OnModuleDestroy {
               eventType: 'payout.failed_permanent',
               payload: {
                 subOrderId,
-                payoutId: payout.id,
+                payoutId: finalPayout.id,
                 error: apiMsg || 'Unknown API failure',
               },
             },
@@ -348,7 +355,7 @@ export class PayoutsService implements OnModuleDestroy {
       } else {
         // Mark FAILED for retry
         await this.prisma.payout.update({
-          where: { id: payout.id },
+          where: { id: finalPayout.id },
           data: { status: 'FAILED', retryCount: nextRetryCount },
         });
         throw new Error(
@@ -363,7 +370,7 @@ export class PayoutsService implements OnModuleDestroy {
         // Atomic status claim to prevent double outbox emissions
         const affectedPayout = await tx.payout.updateMany({
           where: {
-            id: payout.id,
+            id: finalPayout.id,
             status: { in: ['PENDING', 'FAILED', 'BLOCKED'] },
           },
           data: {
@@ -399,7 +406,7 @@ export class PayoutsService implements OnModuleDestroy {
             eventType: 'payout.settled',
             payload: {
               subOrderId,
-              payoutId: payout.id,
+              payoutId: finalPayout.id,
               gatewayTransferId,
               amount: netPayout.toString(),
               commission: totalCommission.toString(),
