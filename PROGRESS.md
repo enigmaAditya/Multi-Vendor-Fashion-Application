@@ -97,4 +97,15 @@
 - [x] Wrote unit and E2E integration tests validating amount-tampering blocks, duplicate webhook idempotency, and expired hold outcomes
       **Next target:** Payouts & Commission Settlement (Phase P5 Back Half - Razorpay Route, commission ledger, settlements)
 
+## Week 8 — [2026-07-18] (Payouts & Commission Settlement — COMPLETE)
+
+**Plan:** Phase P5 Back Half (Payouts & Commission Settlement)
+**Done:**
+
+- [x] Added database schemas and migrations for CommissionRule, CommissionLedger, SellerLinkedAccount, and Payout models
+- [x] Built processDelivery state-machine transitions and scheduled delayed BullMQ escrow checks matching the return window
+- [x] Designed bidirectional atomic claims preventing settle-vs-cancel checkout races
+- [x] Designed a self-healing resume path leveraging Razorpay idempotency keys to restore state post-crash without duplicate payouts
+- [x] Resolved strict TypeScript compilation null-safety closure errors using stable payout constant bindings
+- [x] Wrote unit and E2E integration tests validating exact commission calculations, default/override rules, and E2E crash-recovery states
 

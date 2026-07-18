@@ -74,6 +74,10 @@ describe('Catalog System (e2e)', () => {
 
   beforeEach(async () => {
     // Clear databases
+    await prisma.commissionLedger.deleteMany({});
+    await prisma.payout.deleteMany({});
+    await prisma.sellerLinkedAccount.deleteMany({});
+    await prisma.commissionRule.deleteMany({});
     await prisma.paymentWebhookLog.deleteMany({});
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});
