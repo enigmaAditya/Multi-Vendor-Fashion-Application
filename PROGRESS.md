@@ -108,4 +108,8 @@
 - [x] Designed a self-healing resume path leveraging Razorpay idempotency keys to restore state post-crash without duplicate payouts
 - [x] Resolved strict TypeScript compilation null-safety closure errors using stable payout constant bindings
 - [x] Wrote unit and E2E integration tests validating exact commission calculations, default/override rules, and E2E crash-recovery states
+  *(Note: The delivery trigger is currently simulated via an admin API stub, which will be integrated with real Shiprocket events in the upcoming Logistics phase)*
+
+**Next target:** Logistics & Shipping (Phase P7 - Shiprocket integration, real-time tracking, delivery hooks)
+
 
