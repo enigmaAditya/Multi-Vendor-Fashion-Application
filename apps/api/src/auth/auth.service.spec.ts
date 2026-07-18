@@ -7,6 +7,12 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { AUTH_ERRORS } from '@marketplace/constants';
 import * as crypto from 'crypto';
 
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn().mockReturnValue({
+    sendMail: jest.fn().mockResolvedValue({}),
+  }),
+}));
+
 describe('AuthService', () => {
   let service: AuthService;
 

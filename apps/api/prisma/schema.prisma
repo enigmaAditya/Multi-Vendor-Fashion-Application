@@ -361,6 +361,10 @@ model SubOrder {
   status           String             @default("PENDING")
   deliveredAt      DateTime?
   settlementStatus String             @default("PENDING")
+  shipmentId       String?            @unique
+  awbCode          String?            @unique
+  courierName      String?
+  shipmentStatus   String             @default("PENDING_SYNC")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   items            OrderItem[]
@@ -444,5 +448,15 @@ model Payout {
   seller            User      @relation(fields: [sellerId], references: [id])
 
   @@map("payouts")
+}
+
+model ShipmentWebhookLog {
+  id        String   @id @default(uuid(7))
+  awbCode   String
+  status    String
+  createdAt DateTime @default(now())
+
+  @@unique([awbCode, status])
+  @@map("shipment_webhook_logs")
 }
 

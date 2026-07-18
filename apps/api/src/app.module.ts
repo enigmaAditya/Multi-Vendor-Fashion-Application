@@ -9,6 +9,7 @@ import { MediaModule } from './media/media.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { OrdersModule } from './orders/orders.module';
 import { PayoutsModule } from './payouts/payouts.module';
+import { LogisticsModule } from './logistics/logistics.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PayoutsModule } from './payouts/payouts.module';
     InventoryModule,
     OrdersModule,
     PayoutsModule,
+    LogisticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

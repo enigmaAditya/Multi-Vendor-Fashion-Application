@@ -108,8 +108,18 @@
 - [x] Designed a self-healing resume path leveraging Razorpay idempotency keys to restore state post-crash without duplicate payouts
 - [x] Resolved strict TypeScript compilation null-safety closure errors using stable payout constant bindings
 - [x] Wrote unit and E2E integration tests validating exact commission calculations, default/override rules, and E2E crash-recovery states
-  *(Note: The delivery trigger is currently simulated via an admin API stub, which will be integrated with real Shiprocket events in the upcoming Logistics phase)*
+      _(Note: The delivery trigger is integrated with real Shiprocket events and outbox-driven syncing)_
 
-**Next target:** Logistics & Shipping (Phase P7 - Shiprocket integration, real-time tracking, delivery hooks)
+**Next target:** Done with initial core marketplace features.
 
+## Week 9 — [2026-07-18] (Logistics & Shipping — COMPLETE)
 
+**Plan:** Phase P7 (Logistics & Shipping — Shiprocket Integration)
+**Done:**
+
+- [x] Integrated real-time tracking with Shiprocket API using outbox-driven syncing and timing-safe webhook receivers
+- [x] Created database schema and migrations for shipment metadata tracking and idempotent callback logging
+- [x] Designed Redis locked token manager cache supporting single-flight authorization token generation
+- [x] Implemented pre-settlement RTO restocking loops restoring inventory counts and updating ledgers
+- [x] Implemented post-settlement RTO clawback workflows flagging sub-orders and writing outbox alert records
+- [x] Wrote unit and E2E integration specs validating outbox processing, duplicate webhook rejections, and pre/post-settlement return routes

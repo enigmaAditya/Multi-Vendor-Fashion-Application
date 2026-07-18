@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Queue } from 'bullmq';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PayoutsService implements OnModuleDestroy {
@@ -55,15 +56,20 @@ export class PayoutsService implements OnModuleDestroy {
   }
 
   // --- Process Delivery (Admin only) ---
-  async processDelivery(subOrderId: string, escrowDelaySeconds = 604800) {
-    const subOrder = await this.prisma.subOrder.findUnique({
+  async processDelivery(
+    subOrderId: string,
+    escrowDelaySeconds = 604800,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    const subOrder = await client.subOrder.findUnique({
       where: { id: subOrderId },
     });
     if (!subOrder) throw new NotFoundException('Sub-order not found.');
 
     // State machine guard: CONFIRMED -> DELIVERED
-    return this.prisma.$transaction(async (tx) => {
-      const affected = await tx.subOrder.updateMany({
+    const runOperations = async (runner: Prisma.TransactionClient) => {
+      const affected = await runner.subOrder.updateMany({
         where: { id: subOrderId, status: 'CONFIRMED' },
         data: {
           status: 'DELIVERED',
@@ -86,29 +92,85 @@ export class PayoutsService implements OnModuleDestroy {
       );
 
       return { success: true };
-    });
+    };
+
+    if (tx) {
+      return runOperations(tx);
+    } else {
+      return this.prisma.$transaction(runOperations);
+    }
   }
 
   // --- Cancel Payout (Returns/Refunds path) ---
-  async cancelPayout(subOrderId: string) {
-    const subOrder = await this.prisma.subOrder.findUnique({
+  async cancelPayout(subOrderId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    const subOrder = await client.subOrder.findUnique({
       where: { id: subOrderId },
+      include: { items: true },
     });
     if (!subOrder) throw new NotFoundException('Sub-order not found.');
 
-    // Bidirectional atomic claim (only allow cancellation if still PENDING)
-    const affected = await this.prisma.subOrder.updateMany({
-      where: { id: subOrderId, settlementStatus: 'PENDING' },
-      data: { settlementStatus: 'CANCELED' },
-    });
+    const runOperations = async (runner: Prisma.TransactionClient) => {
+      // Bidirectional atomic claim (only allow cancellation if still PENDING)
+      const affected = await runner.subOrder.updateMany({
+        where: { id: subOrderId, settlementStatus: 'PENDING' },
+        data: { settlementStatus: 'CANCELED' },
+      });
 
-    if (affected.count === 0) {
-      throw new BadRequestException(
-        'Payout cannot be canceled because it is already settling or completed.',
-      );
+      if (affected.count === 0) {
+        throw new BadRequestException(
+          'Payout cannot be canceled because it is already settling or completed.',
+        );
+      }
+
+      // Restock items from active reservations
+      for (const item of subOrder.items) {
+        const reservations = await runner.inventoryReservation.findMany({
+          where: {
+            orderId: subOrder.orderId,
+            skuId: item.skuId,
+            status: 'COMPLETED',
+          },
+        });
+
+        for (const res of reservations) {
+          await runner.skuInventory.update({
+            where: {
+              warehouseId_skuId: {
+                warehouseId: res.warehouseId,
+                skuId: res.skuId,
+              },
+            },
+            data: {
+              onHand: { increment: res.quantity },
+            },
+          });
+
+          await runner.inventoryLedger.create({
+            data: {
+              skuId: res.skuId,
+              warehouseId: res.warehouseId,
+              quantityDelta: res.quantity,
+              reservedDelta: 0,
+              type: 'RETURN_RESTOCK',
+            },
+          });
+
+          await runner.inventoryReservation.update({
+            where: { id: res.id },
+            data: { status: 'RETURNED' },
+          });
+        }
+      }
+
+      return { success: true };
+    };
+
+    if (tx) {
+      return runOperations(tx);
+    } else {
+      return this.prisma.$transaction(runOperations);
     }
-
-    return { success: true };
   }
 
   // --- Settle Payout ---
