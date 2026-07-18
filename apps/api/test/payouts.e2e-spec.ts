@@ -82,6 +82,8 @@ describe('Payouts & Commission Settlements System (e2e)', () => {
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});
     await prisma.order.deleteMany({});
+    await prisma.skuInventory.deleteMany({});
+    await prisma.warehouse.deleteMany({});
     await prisma.sku.deleteMany({});
     await prisma.productVariant.deleteMany({});
     await prisma.product.deleteMany({});

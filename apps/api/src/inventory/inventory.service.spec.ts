@@ -44,18 +44,29 @@ describe('InventoryService', () => {
     close: jest.fn(),
   };
 
+  let moduleRef: TestingModule;
+  let originalQueue: any;
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    moduleRef = await Test.createTestingModule({
       providers: [
         InventoryService,
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<InventoryService>(InventoryService);
+    service = moduleRef.get<InventoryService>(InventoryService);
+    originalQueue = (service as any).inventoryQueue;
     // Overwrite programmatic queue with mock
     (service as any).inventoryQueue = mockQueue;
     jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    if (originalQueue) {
+      await originalQueue.close();
+    }
+    await moduleRef.close();
   });
 
   describe('addStock', () => {
