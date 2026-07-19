@@ -10,6 +10,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { OrdersModule } from './orders/orders.module';
 import { PayoutsModule } from './payouts/payouts.module';
 import { LogisticsModule } from './logistics/logistics.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { LogisticsModule } from './logistics/logistics.module';
     OrdersModule,
     PayoutsModule,
     LogisticsModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

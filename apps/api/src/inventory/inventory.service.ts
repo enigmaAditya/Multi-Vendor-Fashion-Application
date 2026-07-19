@@ -98,33 +98,35 @@ export class InventoryService implements OnModuleDestroy {
 
     // 3. Atomically upsert inventory and log to ledger inside transaction
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const inventory = await tx.skuInventory.upsert({
-        where: {
-          warehouseId_skuId: { warehouseId, skuId },
-        },
-        update: {
-          onHand: { increment: qty },
-        },
-        create: {
-          skuId,
-          warehouseId,
-          onHand: qty,
-          reserved: 0,
-        },
-      });
+      return this.wrapAvailabilityFlip(tx, [skuId], async () => {
+        const inventory = await tx.skuInventory.upsert({
+          where: {
+            warehouseId_skuId: { warehouseId, skuId },
+          },
+          update: {
+            onHand: { increment: qty },
+          },
+          create: {
+            skuId,
+            warehouseId,
+            onHand: qty,
+            reserved: 0,
+          },
+        });
 
-      await tx.inventoryLedger.create({
-        data: {
-          skuId,
-          warehouseId,
-          quantityDelta: qty,
-          reservedDelta: 0,
-          type: 'STOCK_IN',
-          reason: reason || 'Initial stock replenishment',
-        },
-      });
+        await tx.inventoryLedger.create({
+          data: {
+            skuId,
+            warehouseId,
+            quantityDelta: qty,
+            reservedDelta: 0,
+            type: 'STOCK_IN',
+            reason: reason || 'Initial stock replenishment',
+          },
+        });
 
-      return inventory;
+        return inventory;
+      });
     });
   }
 
@@ -169,66 +171,68 @@ export class InventoryService implements OnModuleDestroy {
     }
 
     const runOperations = async (runner: Prisma.TransactionClient) => {
-      // 1. Double check SkuInventory row exists, if not initialize it (with 0 onHand)
-      await runner.skuInventory.upsert({
-        where: {
-          warehouseId_skuId: { warehouseId, skuId },
-        },
-        update: {},
-        create: {
-          skuId,
-          warehouseId,
-          onHand: 0,
-          reserved: 0,
-        },
+      return this.wrapAvailabilityFlip(runner, [skuId], async () => {
+        // 1. Double check SkuInventory row exists, if not initialize it (with 0 onHand)
+        await runner.skuInventory.upsert({
+          where: {
+            warehouseId_skuId: { warehouseId, skuId },
+          },
+          update: {},
+          create: {
+            skuId,
+            warehouseId,
+            onHand: 0,
+            reserved: 0,
+          },
+        });
+
+        // 2. Perform atomic row lock update claim using correctly double-quoted PostgreSQL camelCase fields
+        const affected = await runner.$executeRaw`
+          UPDATE sku_inventories
+          SET "reserved" = "reserved" + ${quantity}
+          WHERE "skuId" = ${skuId}
+            AND "warehouseId" = ${warehouseId}
+            AND ("onHand" - "reserved") >= ${quantity}
+        `;
+
+        if (affected === 0) {
+          throw new BadRequestException('Insufficient stock available.');
+        }
+
+        // 3. Save reservation record
+        const reservation = await runner.inventoryReservation.create({
+          data: {
+            skuId,
+            warehouseId,
+            userId,
+            reservationCode,
+            quantity,
+            expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+            status: 'PENDING',
+          },
+        });
+
+        // 4. Log to append-only ledger
+        await runner.inventoryLedger.create({
+          data: {
+            skuId,
+            warehouseId,
+            quantityDelta: 0,
+            reservedDelta: quantity,
+            type: 'RESERVATION_HOLD',
+            referenceId: reservation.id,
+          },
+        });
+
+        // 5. Schedule BullMQ delayed task for TTL expiry checks
+        await this.inventoryQueue.add(
+          'check-expiry',
+          { reservationCode },
+          { delay: ttlSeconds * 1000 },
+        );
+
+        return reservation;
       });
-
-      // 2. Perform atomic row lock update claim using correctly double-quoted PostgreSQL camelCase fields
-      const affected = await runner.$executeRaw`
-        UPDATE sku_inventories
-        SET "reserved" = "reserved" + ${quantity}
-        WHERE "skuId" = ${skuId}
-          AND "warehouseId" = ${warehouseId}
-          AND ("onHand" - "reserved") >= ${quantity}
-      `;
-
-      if (affected === 0) {
-        throw new BadRequestException('Insufficient stock available.');
-      }
-
-      // 3. Save reservation record
-      const reservation = await runner.inventoryReservation.create({
-        data: {
-          skuId,
-          warehouseId,
-          userId,
-          reservationCode,
-          quantity,
-          expiresAt: new Date(Date.now() + ttlSeconds * 1000),
-          status: 'PENDING',
-        },
-      });
-
-      // 4. Log to append-only ledger
-      await runner.inventoryLedger.create({
-        data: {
-          skuId,
-          warehouseId,
-          quantityDelta: 0,
-          reservedDelta: quantity,
-          type: 'RESERVATION_HOLD',
-          referenceId: reservation.id,
-        },
-      });
-
-      // 5. Schedule BullMQ delayed task for TTL expiry checks
-      await this.inventoryQueue.add(
-        'check-expiry',
-        { reservationCode },
-        { delay: ttlSeconds * 1000 },
-      );
-
-      return reservation;
     };
 
     if (tx) {
@@ -272,49 +276,52 @@ export class InventoryService implements OnModuleDestroy {
     }
 
     const runOperations = async (runner: Prisma.TransactionClient) => {
-      // Claim status transition atomically
-      const affected = await runner.inventoryReservation.updateMany({
-        where: {
-          reservationCode,
-          status: 'PENDING',
-        },
-        data: {
-          status: 'RELEASED',
-        },
-      });
-
-      if (affected.count !== pendingReservations.length) {
-        return { success: false, message: 'Reservation already finalized.' };
-      }
-
-      // Decrement reserved stock atomically for all claimed reservations
-      for (const reservation of pendingReservations) {
-        await runner.skuInventory.update({
+      const skuIds = pendingReservations.map((r) => r.skuId);
+      return this.wrapAvailabilityFlip(runner, skuIds, async () => {
+        // Claim status transition atomically
+        const affected = await runner.inventoryReservation.updateMany({
           where: {
-            warehouseId_skuId: {
-              warehouseId: reservation.warehouseId,
-              skuId: reservation.skuId,
+            reservationCode,
+            status: 'PENDING',
+          },
+          data: {
+            status: 'RELEASED',
+          },
+        });
+
+        if (affected.count !== pendingReservations.length) {
+          return { success: false, message: 'Reservation already finalized.' };
+        }
+
+        // Decrement reserved stock atomically for all claimed reservations
+        for (const reservation of pendingReservations) {
+          await runner.skuInventory.update({
+            where: {
+              warehouseId_skuId: {
+                warehouseId: reservation.warehouseId,
+                skuId: reservation.skuId,
+              },
             },
-          },
-          data: {
-            reserved: { decrement: reservation.quantity },
-          },
-        });
+            data: {
+              reserved: { decrement: reservation.quantity },
+            },
+          });
 
-        // Log to ledger
-        await runner.inventoryLedger.create({
-          data: {
-            skuId: reservation.skuId,
-            warehouseId: reservation.warehouseId,
-            quantityDelta: 0,
-            reservedDelta: -reservation.quantity,
-            type: 'RESERVATION_RELEASE',
-            referenceId: reservation.id,
-          },
-        });
-      }
+          // Log to ledger
+          await runner.inventoryLedger.create({
+            data: {
+              skuId: reservation.skuId,
+              warehouseId: reservation.warehouseId,
+              quantityDelta: 0,
+              reservedDelta: -reservation.quantity,
+              type: 'RESERVATION_RELEASE',
+              referenceId: reservation.id,
+            },
+          });
+        }
 
-      return { success: true, message: 'Reservation successfully released.' };
+        return { success: true, message: 'Reservation successfully released.' };
+      });
     };
 
     if (tx) {
@@ -411,5 +418,78 @@ export class InventoryService implements OnModuleDestroy {
     } else {
       return this.prisma.$transaction(runOperations);
     }
+  }
+
+  private async getProductInStock(
+    client: Prisma.TransactionClient,
+    productId: string,
+  ): Promise<boolean> {
+    const skus = await client.sku.findMany({
+      where: { variant: { productId } },
+      include: {
+        inventories: {
+          select: {
+            onHand: true,
+            reserved: true,
+          },
+        },
+      },
+    });
+    return skus.some((sku) =>
+      sku.inventories.some((inv) => inv.onHand - inv.reserved > 0),
+    );
+  }
+
+  private async getProductIdFromSkuId(
+    client: Prisma.TransactionClient,
+    skuId: string,
+  ): Promise<string | null> {
+    const sku = await client.sku.findUnique({
+      where: { id: skuId },
+      select: {
+        variant: {
+          select: {
+            productId: true,
+          },
+        },
+      },
+    });
+    return sku?.variant?.productId || null;
+  }
+
+  private async wrapAvailabilityFlip<T>(
+    runner: Prisma.TransactionClient,
+    skuIds: string[],
+    action: () => Promise<T>,
+  ): Promise<T> {
+    const distinctSkuIds = Array.from(new Set(skuIds));
+    const productBeforeStates = new Map<string, boolean>();
+
+    for (const skuId of distinctSkuIds) {
+      const productId = await this.getProductIdFromSkuId(runner, skuId);
+      if (productId && !productBeforeStates.has(productId)) {
+        const inStock = await this.getProductInStock(runner, productId);
+        productBeforeStates.set(productId, inStock);
+      }
+    }
+
+    const result = await action();
+
+    for (const [productId, beforeInStock] of productBeforeStates.entries()) {
+      const afterInStock = await this.getProductInStock(runner, productId);
+      if (beforeInStock !== afterInStock) {
+        await runner.outboxEvent.create({
+          data: {
+            eventType: 'stock.availability_changed',
+            payload: {
+              productId,
+              inStock: afterInStock,
+            },
+          },
+        });
+      }
+    }
+
+    return result;
   }
 }

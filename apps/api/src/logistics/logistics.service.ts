@@ -353,6 +353,27 @@ export class LogisticsService {
             }
           }
 
+          // Check availability before restocking
+          const skuIds = subOrder.items.map((item) => item.skuId);
+          const productBeforeStates = new Map<string, boolean>();
+          for (const skuId of skuIds) {
+            const sku = await tx.sku.findUnique({
+              where: { id: skuId },
+              select: { variant: { select: { productId: true } } },
+            });
+            const productId = sku?.variant.productId;
+            if (productId && !productBeforeStates.has(productId)) {
+              const skus = await tx.sku.findMany({
+                where: { variant: { productId } },
+                include: { inventories: true },
+              });
+              const inStock = skus.some((s) =>
+                s.inventories.some((inv) => inv.onHand - inv.reserved > 0),
+              );
+              productBeforeStates.set(productId, inStock);
+            }
+          }
+
           // Restock items from active reservations
           for (const item of subOrder.items) {
             const reservations = await tx.inventoryReservation.findMany({
@@ -390,6 +411,31 @@ export class LogisticsService {
               await tx.inventoryReservation.update({
                 where: { id: res.id },
                 data: { status: 'RETURNED' },
+              });
+            }
+          }
+
+          // Check availability after restocking and emit if changed
+          for (const [
+            productId,
+            beforeInStock,
+          ] of productBeforeStates.entries()) {
+            const skus = await tx.sku.findMany({
+              where: { variant: { productId } },
+              include: { inventories: true },
+            });
+            const afterInStock = skus.some((s) =>
+              s.inventories.some((inv) => inv.onHand - inv.reserved > 0),
+            );
+            if (beforeInStock !== afterInStock) {
+              await tx.outboxEvent.create({
+                data: {
+                  eventType: 'stock.availability_changed',
+                  payload: {
+                    productId,
+                    inStock: afterInStock,
+                  },
+                },
               });
             }
           }

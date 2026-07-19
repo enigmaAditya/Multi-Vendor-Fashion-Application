@@ -123,3 +123,18 @@
 - [x] Implemented pre-settlement RTO restocking loops restoring inventory counts and updating ledgers
 - [x] Implemented post-settlement RTO clawback workflows flagging sub-orders and writing outbox alert records
 - [x] Wrote unit and E2E integration specs validating outbox processing, duplicate webhook rejections, and pre/post-settlement return routes
+
+## Week 10 — [2026-07-19] (Search & Discovery — COMPLETE)
+
+**Plan:** Phase P8 (Search & Discovery — Meilisearch Integration)
+**Done:**
+
+- [x] Added database schemas and migrations for `SearchQueryLog` model to track search behavior
+- [x] Configured `SearchService` initializing settings (searchable/filterable/sortable attributes, custom ranking rules) on NestJS boot-up
+- [x] Built outbox-driven index syncing (`SearchProcessor`) capturing product lifecycle and stock availability changes
+- [x] Implemented dynamic faceted search proxying (`GET /search`) with filters, pricing bounds, sorting, limit/offset, and facet distributions
+- [x] Logged all search queries asynchronously to `SearchQueryLog` for search discovery analytics
+- [x] Decoupled price-sorting logic from raw SQL in `CatalogService`, routing through `SearchService` to close the Price-Sort Total Count Parity ticket
+- [x] Guarded stock availability indexing by emitting outbox events (`stock.availability_changed`) only when product stock flips inStock true <-> false
+- [x] Wrote unit and E2E integration specs validating search queries, facets distribution, admin reindex backfills, and query logging
+

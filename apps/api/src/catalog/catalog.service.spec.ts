@@ -1,4 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
+jest.mock('meilisearch', () => {
+  return {
+    MeiliSearch: jest.fn().mockImplementation(() => {
+      return {
+        index: jest.fn().mockReturnValue({
+          updateSettings: jest.fn().mockResolvedValue({}),
+          search: jest
+            .fn()
+            .mockResolvedValue({ hits: [], estimatedTotalHits: 0 }),
+        }),
+      };
+    }),
+  };
+});
+
 import { CatalogService } from './catalog.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -7,9 +23,14 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { PRODUCT_STATUS } from '@marketplace/constants';
+import { SearchService } from '../search/search.service';
 
 describe('CatalogService', () => {
   let service: CatalogService;
+
+  const mockSearchService: any = {
+    search: jest.fn(),
+  };
 
   const mockPrisma: any = {
     category: {
@@ -66,6 +87,7 @@ describe('CatalogService', () => {
       providers: [
         CatalogService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SearchService, useValue: mockSearchService },
       ],
     }).compile();
 

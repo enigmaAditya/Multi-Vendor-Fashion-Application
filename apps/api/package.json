@@ -19,7 +19,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json --forceExit",
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand --forceExit",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -36,6 +36,7 @@
     "bullmq": "^5.80.7",
     "cookie-parser": "^1.4.7",
     "ioredis": "^5.11.1",
+    "meilisearch": "^0.59.0",
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
     "prisma": "^7.8.0",

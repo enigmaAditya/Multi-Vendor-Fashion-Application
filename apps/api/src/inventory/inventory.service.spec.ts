@@ -19,6 +19,7 @@ describe('InventoryService', () => {
     },
     sku: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
     skuInventory: {
       upsert: jest.fn(),
@@ -33,6 +34,9 @@ describe('InventoryService', () => {
       updateMany: jest.fn(),
     },
     inventoryLedger: {
+      create: jest.fn(),
+    },
+    outboxEvent: {
       create: jest.fn(),
     },
     $transaction: jest.fn((callback) => callback(mockPrisma)),

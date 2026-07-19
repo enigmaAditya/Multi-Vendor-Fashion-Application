@@ -18,12 +18,16 @@ import {
 import { PRODUCT_STATUS, ProductStatus } from '@marketplace/constants';
 import * as crypto from 'crypto';
 import { uuidv7 } from 'uuidv7';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class CatalogService {
   private readonly logger = new Logger(CatalogService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly searchService: SearchService,
+  ) {}
 
   // Helpers
   private generateSlug(name: string): string {
@@ -937,71 +941,18 @@ export class CatalogService {
       createdAt: 'desc',
     }; // Default is NEWEST
     if (query.sort === 'PRICE_ASC' || query.sort === 'PRICE_DESC') {
-      // Nested relational sorting is resolved at DB layer via Raw SQL for Pagination
-      // Retrieve product IDs sorted by minimum/maximum SKU price
-      const direction = query.sort === 'PRICE_ASC' ? 'ASC' : 'DESC';
-      const orderAgg = query.sort === 'PRICE_ASC' ? 'MIN' : 'MAX';
+      // Retiring raw-SQL price-sort branch in favor of Meilisearch search service routing
+      const meiliResult = await this.searchService.search({
+        categoryId: query.categoryId,
+        brandId: query.brandId,
+        minPrice: query.priceMin,
+        maxPrice: query.priceMax,
+        sort: query.sort === 'PRICE_ASC' ? 'price_asc' : 'price_desc',
+        limit,
+        offset: skip,
+      });
 
-      const conditions: Prisma.Sql[] = [Prisma.sql`p.status = 'LIVE'`];
-
-      if (query.categoryId) {
-        const category = await this.prisma.category.findUnique({
-          where: { id: query.categoryId },
-        });
-        if (category) {
-          const descendantCategories = await this.prisma.category.findMany({
-            where: {
-              OR: [
-                { id: query.categoryId },
-                { path: { startsWith: `${category.path}/` } },
-              ],
-            },
-          });
-          const categoryIds = descendantCategories.map((c) => c.id);
-          conditions.push(
-            Prisma.sql`p."categoryId" = ANY(${categoryIds}::uuid[])`,
-          );
-        }
-      }
-
-      if (query.brandId) {
-        conditions.push(Prisma.sql`p."brandId" = ${query.brandId}::uuid`);
-      }
-
-      if (query.priceMin !== undefined) {
-        conditions.push(Prisma.sql`s.price >= ${BigInt(query.priceMin)}`);
-      }
-
-      if (query.priceMax !== undefined) {
-        conditions.push(Prisma.sql`s.price <= ${BigInt(query.priceMax)}`);
-      }
-
-      if (query.attributes && query.attributes.length > 0) {
-        conditions.push(Prisma.sql`
-          p.id IN (
-            SELECT "productId" 
-            FROM product_attribute_value_maps 
-            WHERE "attributeValueId" = ANY(${query.attributes}::uuid[]) 
-            GROUP BY "productId" 
-            HAVING COUNT(DISTINCT "attributeValueId") = ${query.attributes.length}
-          )
-        `);
-      }
-
-      const whereSql = Prisma.join(conditions, ' AND ');
-
-      const rawProducts = await this.prisma.$queryRaw<{ id: string }[]>`
-        SELECT p.id, ${Prisma.raw(orderAgg)}(s.price) as target_price
-        FROM products p
-        JOIN product_variants pv ON pv."productId" = p.id
-        JOIN skus s ON s."variantId" = pv.id
-        WHERE ${whereSql}
-        GROUP BY p.id
-        ORDER BY target_price ${Prisma.raw(direction)}
-        LIMIT ${limit} OFFSET ${skip}
-      `;
-
-      const ids = rawProducts.map((p) => p.id);
+      const ids = meiliResult.hits.map((h) => (h as { id: string }).id);
       if (ids.length === 0) {
         return {
           products: [],
@@ -1034,12 +985,12 @@ export class CatalogService {
         },
       });
 
-      // Maintain order returned by raw SQL
+      // Maintain order returned by Meilisearch
       const sortedProducts = ids
         .map((id) => products.find((p) => p.id === id))
         .filter((p): p is NonNullable<typeof p> => !!p);
 
-      const total = await this.prisma.product.count({ where });
+      const total = meiliResult.estimatedTotalHits ?? meiliResult.hits.length;
 
       return {
         products: sortedProducts.map((p) => this.serializeProduct(p)),

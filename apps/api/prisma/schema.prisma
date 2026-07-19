@@ -460,3 +460,15 @@ model ShipmentWebhookLog {
   @@map("shipment_webhook_logs")
 }
 
+model SearchQueryLog {
+  id           String   @id @default(uuid(7))
+  query        String
+  filters      String?  // JSON stringified filters
+  resultsCount Int
+  userId       String?
+  createdAt    DateTime @default(now())
+
+  @@map("search_queries_log")
+}
+
+
