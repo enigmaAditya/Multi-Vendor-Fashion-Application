@@ -25,6 +25,7 @@ model User {
   orders        Order[]
   subOrders     SubOrder[]
   payouts       Payout[]
+  reviews       Review[]
   linkedAccount SellerLinkedAccount?
 
   @@map("users")
@@ -124,6 +125,7 @@ model Product {
   updatedAt   DateTime                @updatedAt
   variants    ProductVariant[]
   attributes  ProductAttributeValueMap[]
+  reviews     Review[]
 
   @@index([categoryId])
   @@index([brandId])
@@ -164,6 +166,7 @@ model Sku {
   reservations InventoryReservation[]
   ledgers      InventoryLedger[]
   orderItems   OrderItem[]
+  reviews      Review[]
 
   @@unique([sellerId, skuCode])
   @@index([variantId])
@@ -347,6 +350,7 @@ model Order {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   subOrders        SubOrder[]
+  reviews          Review[]
 
   @@map("orders")
 }
@@ -471,4 +475,25 @@ model SearchQueryLog {
   @@map("search_queries_log")
 }
 
+model Review {
+  id        String   @id @default(uuid(7))
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id])
+  rating    Int      // 1 to 5 stars
+  title     String?
+  comment   String?
+  status    String   @default("APPROVED") // APPROVED, REJECTED, FLAGGED
+  skuId     String?
+  sku       Sku?     @relation(fields: [skuId], references: [id], onDelete: SetNull)
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([productId, buyerId])
+  @@index([productId])
+  @@index([buyerId])
+  @@map("reviews")
+}

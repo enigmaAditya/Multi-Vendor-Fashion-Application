@@ -138,3 +138,16 @@
 - [x] Guarded stock availability indexing by emitting outbox events (`stock.availability_changed`) only when product stock flips inStock true <-> false
 - [x] Wrote unit and E2E integration specs validating search queries, facets distribution, admin reindex backfills, and query logging
 
+### Week 11 — Reviews System (Phase P9)
+
+**Done:**
+
+- [x] Added `Review` model to Prisma schema with `status` (APPROVED/REJECTED), `orderId`, `skuId` for provenance, and `@@unique([productId, buyerId])` constraint
+- [x] Implemented `ReviewsService` with verified-purchase gate traversing Order(PAID) → SubOrder → OrderItem → Sku → Variant → Product
+- [x] Enforced one-review-per-buyer-per-product with 409 ConflictException on duplicates
+- [x] Added XSS sanitization (HTML entity escaping) on title and comment inputs before storage
+- [x] Implemented admin moderation endpoint (`PATCH /admin/reviews/:id/moderate`) with `product.updated` outbox re-emission on status change
+- [x] All read paths (public listing, stats aggregation, search rating) filter `status: 'APPROVED'` consistently
+- [x] Computed product review stats via DB-side `groupBy` and `aggregate` queries (no in-memory loops)
+- [x] Updated `SearchService.upsertProductToIndex` to aggregate real average rating from APPROVED reviews — rating field is no longer a 0 placeholder
+- [x] Wrote 8 unit tests and 11 E2E integration tests covering purchase gate (both directions), sanitization, duplicates, moderation, and stats

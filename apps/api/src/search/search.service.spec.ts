@@ -29,6 +29,11 @@ describe('SearchService', () => {
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
+    review: {
+      aggregate: jest.fn().mockResolvedValue({
+        _avg: { rating: 4.5 },
+      }),
+    },
     searchQueryLog: {
       create: jest.fn().mockResolvedValue({}),
     },

@@ -207,6 +207,15 @@ export class SearchService implements OnModuleInit {
       value: attrMap.attributeValue.value,
     }));
 
+    // Compute average rating from APPROVED reviews only
+    const reviewAgg = await this.prisma.review.aggregate({
+      where: { productId, status: 'APPROVED' },
+      _avg: { rating: true },
+    });
+    const rating = reviewAgg._avg.rating
+      ? Math.round(reviewAgg._avg.rating * 10) / 10
+      : 0;
+
     const doc: ProductSearchDocument = {
       id: product.id,
       name: product.name,
@@ -217,7 +226,7 @@ export class SearchService implements OnModuleInit {
       categoryId: product.categoryId,
       categoryName: product.category?.name || null,
       createdAt: Math.floor(product.createdAt.getTime() / 1000),
-      rating: 0,
+      rating,
       salesVelocity: 0,
       inStock,
       colors,

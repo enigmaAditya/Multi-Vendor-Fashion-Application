@@ -11,6 +11,7 @@ import { OrdersModule } from './orders/orders.module';
 import { PayoutsModule } from './payouts/payouts.module';
 import { LogisticsModule } from './logistics/logistics.module';
 import { SearchModule } from './search/search.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SearchModule } from './search/search.module';
     PayoutsModule,
     LogisticsModule,
     SearchModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
