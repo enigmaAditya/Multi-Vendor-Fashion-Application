@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import {
@@ -538,5 +543,36 @@ export class OrdersService {
       orderBy: { createdAt: 'desc' },
     });
     return subOrders;
+  }
+
+  async getOrderById(buyerId: string, orderId: string, isAdmin = false) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { subOrders: { include: { items: true } } },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found.');
+    }
+
+    // IDOR Enforcement: Must belong to requesting buyer unless admin
+    if (order.buyerId !== buyerId && !isAdmin) {
+      throw new NotFoundException('Order not found.');
+    }
+
+    return {
+      ...order,
+      totalAmount: order.totalAmount.toString(),
+      discountAmount: order.discountAmount.toString(),
+      amountCharged: order.amountCharged.toString(),
+      subOrders: order.subOrders.map((so) => ({
+        ...so,
+        amount: so.amount.toString(),
+        items: so.items.map((item) => ({
+          ...item,
+          price: item.price.toString(),
+        })),
+      })),
+    };
   }
 }

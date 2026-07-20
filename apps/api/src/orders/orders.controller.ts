@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Body,
+  Param,
   UseGuards,
   Req,
   Headers,
@@ -97,5 +98,18 @@ export class OrdersController {
     const sellerId = req.user.sub;
     const subOrders = await this.ordersService.getSellerOrders(sellerId);
     return { subOrders };
+  }
+
+  // --- Single Buyer Order Lookup (Buyer Scoped + IDOR Check) ---
+  @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('USER', 'ADMIN')
+  async getOrderById(
+    @Req() req: RequestWithUser,
+    @Param('id') orderId: string,
+  ) {
+    const buyerId = req.user.sub;
+    const isAdmin = req.user.roles.includes('ADMIN');
+    return this.ordersService.getOrderById(buyerId, orderId, isAdmin);
   }
 }

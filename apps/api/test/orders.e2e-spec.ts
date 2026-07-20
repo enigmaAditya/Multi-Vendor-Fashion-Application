@@ -379,4 +379,48 @@ describe('Orders & Checkout System (e2e)', () => {
     });
     expect(finalInv2?.onHand).toBe(3); // Unchanged physical stock
   });
+
+  it('should fetch single order by ID for owner and return 404 for unauthorized buyers (IDOR Guard)', async () => {
+    // Create buyer 2
+    const buyer2Id = crypto.randomUUID();
+    await prisma.user.create({
+      data: {
+        id: buyer2Id,
+        phone: `+91999${Math.floor(1000000 + Math.random() * 9000000)}`,
+        roles: ['USER'],
+      },
+    });
+    const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
+    const buyer2Token = await jwtService.signAsync(
+      { sub: buyer2Id, roles: ['USER'] },
+      { secret, expiresIn: '15m' },
+    );
+
+    // Create an order for buyer 1
+    const order1 = await prisma.order.create({
+      data: {
+        buyerId,
+        gatewayOrderId: 'order_mock_test_idor_1',
+        totalAmount: BigInt(5000),
+        discountAmount: BigInt(0),
+        amountCharged: BigInt(5000),
+        paymentStatus: 'PAID',
+        shippingAddress: { city: 'Mumbai' },
+      },
+    });
+
+    // 1. Buyer 1 fetches their own order -> 200 OK
+    const ownRes = await request(app.getHttpServer())
+      .get(`/orders/${order1.id}`)
+      .set('Authorization', `Bearer ${buyerToken}`)
+      .expect(200);
+
+    expect(ownRes.body.id).toBe(order1.id);
+
+    // 2. Buyer 2 attempts to fetch Buyer 1's order -> 404 Not Found (IDOR Protected)
+    await request(app.getHttpServer())
+      .get(`/orders/${order1.id}`)
+      .set('Authorization', `Bearer ${buyer2Token}`)
+      .expect(404);
+  });
 });
