@@ -267,13 +267,17 @@ All 13 core backend modules are implemented, tested, linted, built, and verified
 | 10 | **Reviews System** | Verified purchase gate (PAID Order $\rightarrow$ Product hop), one review per user, XSS escaping | ✅ COMPLETE |
 | 11 | **Coupons & Promotions**| Dual funding (PLATFORM vs SELLER), seller discount capping, 0-drift payout reconciliation | ✅ COMPLETE |
 | 12 | **Notifications** | Deduplicated multi-channel fan-out (Email, FCM push with dead-token pruning, Mock SMS) | ✅ COMPLETE |
-| 14 | **Admin Control Surface** | Class & Route-level `@Roles('ADMIN')` gate, seller KYC, moderation, financial ledgers & Web UI | ✅ COMPLETE |
+| 14 | **Admin Control Surface** | # Multi-Vendor Fashion Application — Progress Tracker
 
-**Verification & Quality Metrics:**
-- **Unit Tests**: 15 test suites / 91 tests (100% PASSING GREEN)
-- **E2E Integration Tests**: 14 test suites / 52 tests (100% PASSING GREEN)
-- **Frontend Typecheck & Build**: Next.js 16 Web App Build (0 errors, 0 warnings)
-- **CI Status**: GitHub Actions Green on `main` (Commit `59d9ba6`)
+## Completed Phases Overview
+- **Phase P1 through P13a**: Backend Core Services (Identity, Catalog, Media, SKU, Inventory, Orders, Payouts, Logistics, Search, Reviews, Coupons, Notifications, Recommendations, Admin).
+- **Phase P13b**: Admin Dashboard Web UI (`apps/web/app/admin/page.tsx`).
+- **Phase P14a**: Customer Storefront — Browse & Discovery (`apps/web/app/(storefront)/...` with SSR PLP/PDP & recommendation carousels).
+- **Phase P14b**: Customer Storefront — Cart & Atomic Checkout Flow (`apps/web/app/(storefront)/cart`, `checkout`, `orders/confirmation`, and `GET /orders/:id` with IDOR protection).
+- **Phase P14c**: Customer Storefront — Post-Purchase & Reviews (`apps/web/app/(storefront)/orders`, `orders/[id]`, and `ReviewFormModal.tsx`).
 
-
-
+## Overall Quality & Verification Metrics
+- **NestJS Backend Unit Tests**: 15 Test Suites, 91 Tests (100% Passing Green).
+- **NestJS Backend E2E Tests**: 14 Test Suites, 53 Tests (100% Passing Green).
+- **Next.js Web App Build**: `pnpm --filter web run build` (Next.js 16.2.0 production build compiled in 0.80s with 0 Errors).
+- **ESLint & Typecheck**: `pnpm --filter web run typecheck` & `pnpm --filter web run lint` (0 Errors, 0 Warnings).
