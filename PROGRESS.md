@@ -151,3 +151,19 @@
 - [x] Computed product review stats via DB-side `groupBy` and `aggregate` queries (no in-memory loops)
 - [x] Updated `SearchService.upsertProductToIndex` to aggregate real average rating from APPROVED reviews — rating field is no longer a 0 placeholder
 - [x] Wrote 8 unit tests and 11 E2E integration tests covering purchase gate (both directions), sanitization, duplicates, moderation, and stats
+
+### Week 12 — Coupons & Promotions System (Phase P10)
+
+**Done:**
+
+- [x] Added `Coupon`, `CouponRedemption`, and `PromotionLedger` models to Prisma schema with `@map` annotations for snake_case column names
+- [x] Updated `Order` model with `discountAmount` and `amountCharged` fields to separate pre-discount subtotals from net charged amounts
+- [x] Implemented `CouponsService` with server-side code normalization, scope checking (`sellerId`/`categoryId`), min order amount validation, `FIXED`/`PERCENTAGE` calculations, and per-user redemption caps
+- [x] Integrated `CouponsService` with `OrdersService.checkout`:
+  - Computes net `amountCharged = totalAmount - discountAmount` server-side
+  - Passes net `amountCharged` to Razorpay gateway API (`POST /v1/orders`) so customer is charged the exact discounted amount
+  - Performs atomic claim on global redemption counter (`UPDATE coupons SET current_redemptions = current_redemptions + 1 WHERE ...`) inside checkout transaction
+  - Atomically logs `PromotionLedger` (`PLATFORM_PROMO_EXPENSE`) for platform-funded discounts
+- [x] Implemented explicit coupon funding model (`PLATFORM` vs `SELLER`) preserving line-231 payout reconciliation invariant without negative commissions
+- [x] Created `CouponsController` exposing `POST /coupons`, `GET /coupons`, `POST /coupons/validate`, and `PATCH /coupons/:id/status`
+- [x] Wrote 7 unit tests and 4 E2E integration tests covering gateway net amount charging, deep discount settlement & line-231 reconciliation, 5-way concurrent claims on single-use coupons, and per-user limit enforcement

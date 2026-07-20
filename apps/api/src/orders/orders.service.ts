@@ -1,6 +1,10 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import {
+  CouponsService,
+  ValidatedCouponResult,
+} from '../coupons/coupons.service';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 
@@ -11,6 +15,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
+    private readonly couponsService: CouponsService,
   ) {}
 
   // --- Initialize Checkout ---
@@ -18,6 +23,7 @@ export class OrdersService {
     buyerId: string,
     cartItems: { skuId: string; quantity: number }[],
     shippingAddress: any,
+    couponCode?: string,
   ) {
     if (cartItems.length === 0) {
       throw new BadRequestException('Cart is empty.');
@@ -57,7 +63,7 @@ export class OrdersService {
       }
     }
 
-    // 2. Server-side pricing calculation (Note 1)
+    // 2. Server-side pricing calculation & Coupon Discount Validation
     let totalAmount = BigInt(0);
     const itemDetails = cartItems.map((item) => {
       const sku = skus.find((s) => s.id === item.skuId)!;
@@ -70,6 +76,23 @@ export class OrdersService {
         sellerId: sku.sellerId,
       };
     });
+
+    let discountAmount = BigInt(0);
+    let validatedCoupon: ValidatedCouponResult['coupon'] | null = null;
+
+    if (couponCode) {
+      const couponResult =
+        await this.couponsService.validateAndCalculateDiscount(
+          couponCode,
+          buyerId,
+          cartItems,
+        );
+      discountAmount = couponResult.discountAmount;
+      validatedCoupon = couponResult.coupon;
+    }
+
+    const amountCharged =
+      totalAmount > discountAmount ? totalAmount - discountAmount : BigInt(0);
 
     // 3. Select warehouse per SKU (Note 7 - Highest stock select)
     const reservationsToMake: {
@@ -136,11 +159,11 @@ export class OrdersService {
       const keyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_mockkey';
       const keySecret = process.env.RAZORPAY_KEY_SECRET || 'mocksecret';
 
-      // Call Razorpay API using native fetch
+      // Call Razorpay API using native fetch - pass net amountCharged!
       const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString(
         'base64',
       );
-      const amountInPaise = Number(totalAmount);
+      const amountInPaise = Number(amountCharged);
 
       const response = await fetch('https://api.razorpay.com/v1/orders', {
         method: 'POST',
@@ -192,12 +215,57 @@ export class OrdersService {
         data: {
           buyerId,
           totalAmount,
+          discountAmount,
+          amountCharged,
           gatewayOrderId,
           reservationCode,
           shippingAddress: shippingAddress as Prisma.InputJsonValue,
           paymentStatus: 'PENDING',
         },
       });
+
+      if (validatedCoupon) {
+        // Atomic redemption claim
+        const updatedCount = await tx.$executeRaw`
+          UPDATE coupons
+          SET current_redemptions = current_redemptions + 1, updated_at = NOW()
+          WHERE id = ${validatedCoupon.id}
+            AND is_active = true
+            AND (max_redemptions IS NULL OR current_redemptions < max_redemptions)
+        `;
+
+        if (Number(updatedCount) === 0) {
+          throw new BadRequestException(
+            'Coupon redemption limit reached or coupon inactive.',
+          );
+        }
+
+        // Record CouponRedemption with RESERVED status
+        await tx.couponRedemption.create({
+          data: {
+            couponId: validatedCoupon.id,
+            userId: buyerId,
+            orderId: order.id,
+            discountAmount,
+            status: 'RESERVED',
+          },
+        });
+
+        // Record PromotionLedger expense if platform-funded
+        if (
+          discountAmount > BigInt(0) &&
+          validatedCoupon.fundingType === 'PLATFORM'
+        ) {
+          await tx.promotionLedger.create({
+            data: {
+              orderId: order.id,
+              couponId: validatedCoupon.id,
+              amount: discountAmount,
+              type: 'PLATFORM_PROMO_EXPENSE',
+            },
+          });
+        }
+      }
 
       // Split into SubOrders per seller
       const itemsBySeller = itemDetails.reduce(
@@ -243,6 +311,8 @@ export class OrdersService {
         orderId: order.id,
         gatewayOrderId,
         totalAmount: totalAmount.toString(),
+        discountAmount: discountAmount.toString(),
+        amountCharged: amountCharged.toString(),
         reservationCode,
       };
     });
@@ -342,6 +412,12 @@ export class OrdersService {
           });
 
           await tx.subOrder.updateMany({
+            where: { orderId: order.id },
+            data: { status: 'CONFIRMED' },
+          });
+
+          // Finalize CouponRedemption to CONFIRMED
+          await tx.couponRedemption.updateMany({
             where: { orderId: order.id },
             data: { status: 'CONFIRMED' },
           });

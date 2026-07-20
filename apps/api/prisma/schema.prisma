@@ -26,6 +26,8 @@ model User {
   subOrders     SubOrder[]
   payouts       Payout[]
   reviews       Review[]
+  sellerCoupons Coupon[]        @relation("SellerCoupons")
+  couponRedemptions CouponRedemption[]
   linkedAccount SellerLinkedAccount?
 
   @@map("users")
@@ -90,6 +92,7 @@ model Category {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   products  Product[]
+  coupons   Coupon[]
 
   @@index([parentId])
   @@index([path])
@@ -342,6 +345,8 @@ model Order {
   buyerId          String
   buyer            User        @relation(fields: [buyerId], references: [id])
   totalAmount      BigInt
+  discountAmount   BigInt      @default(0) @map("discount_amount")
+  amountCharged    BigInt      @default(0) @map("amount_charged")
   paymentStatus    String      @default("PENDING")
   gatewayOrderId   String      @unique
   gatewayPaymentId String?
@@ -351,6 +356,8 @@ model Order {
   updatedAt        DateTime    @updatedAt
   subOrders        SubOrder[]
   reviews          Review[]
+  couponRedemption CouponRedemption?
+  promotionLedger  PromotionLedger[]
 
   @@map("orders")
 }
@@ -497,3 +504,66 @@ model Review {
   @@index([buyerId])
   @@map("reviews")
 }
+
+model Coupon {
+  id                    String             @id @default(uuid(7))
+  code                  String             @unique
+  description           String?
+  discountType          String             @map("discount_type") // PERCENTAGE or FIXED
+  discountValue         BigInt             @map("discount_value") // Percentage (e.g. 15 for 15%) or Fixed amount in paise (e.g. 5000 for ₹50)
+  fundingType           String             @default("PLATFORM") @map("funding_type") // PLATFORM or SELLER
+  maxDiscountAmount     BigInt?            @map("max_discount_amount") // Max cap in paise for PERCENTAGE coupons
+  minOrderAmount        BigInt             @default(0) @map("min_order_amount") // Min qualifying cart subtotal in paise
+  maxRedemptions        Int?               @map("max_redemptions") // Global redemption cap (null = unlimited)
+  currentRedemptions    Int                @default(0) @map("current_redemptions") // Atomic counter
+  maxRedemptionsPerUser Int                @default(1) @map("max_redemptions_per_user") // Max redemptions per customer
+  sellerId              String?            @map("seller_id") // Optional: Seller-funded coupon
+  seller                User?              @relation("SellerCoupons", fields: [sellerId], references: [id], onDelete: Cascade)
+  categoryId            String?            @map("category_id") // Optional: Category-scoped coupon
+  category              Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  startsAt              DateTime           @default(now()) @map("starts_at")
+  expiresAt             DateTime           @map("expires_at")
+  isActive              Boolean            @default(true) @map("is_active")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  redemptions           CouponRedemption[]
+
+  @@index([code])
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([isActive, expiresAt])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id             String   @id @default(uuid(7))
+  couponId       String   @map("coupon_id")
+  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId        String   @unique @map("order_id")
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  discountAmount BigInt   @map("discount_amount") // Actual discount applied in paise
+  status         String   @default("CONFIRMED") // RESERVED, CONFIRMED, EXPIRED
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([couponId, userId])
+  @@index([userId])
+  @@map("coupon_redemptions")
+}
+
+model PromotionLedger {
+  id        String   @id @default(uuid(7))
+  orderId   String   @map("order_id")
+  couponId  String   @map("coupon_id")
+  amount    BigInt   // Promotional discount funded by platform in paise
+  type      String   @default("PLATFORM_PROMO_EXPENSE")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("promotion_ledger")
+}
+
+

@@ -12,6 +12,7 @@ import { PayoutsModule } from './payouts/payouts.module';
 import { LogisticsModule } from './logistics/logistics.module';
 import { SearchModule } from './search/search.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { CouponsModule } from './coupons/coupons.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ReviewsModule } from './reviews/reviews.module';
     LogisticsModule,
     SearchModule,
     ReviewsModule,
+    CouponsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { CouponsService } from '../coupons/coupons.service';
 import { BadRequestException } from '@nestjs/common';
 import * as crypto from 'crypto';
 
@@ -48,12 +49,17 @@ describe('OrdersService', () => {
     releaseReservation: jest.fn(),
   };
 
+  const mockCouponsService: any = {
+    validateAndCalculateDiscount: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: InventoryService, useValue: mockInventoryService },
+        { provide: CouponsService, useValue: mockCouponsService },
       ],
     }).compile();
 

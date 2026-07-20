@@ -35,6 +35,7 @@ export class OrdersController {
     body: {
       cartItems: { skuId: string; quantity: number }[];
       shippingAddress: any;
+      couponCode?: string;
     },
   ) {
     const buyerId = req.user.sub;
@@ -47,11 +48,14 @@ export class OrdersController {
       buyerId,
       body.cartItems,
       body.shippingAddress,
+      body.couponCode,
     );
     return {
       orderId: result.orderId,
       gatewayOrderId: result.gatewayOrderId,
       totalAmount: result.totalAmount,
+      discountAmount: result.discountAmount,
+      amountCharged: result.amountCharged,
       reservationCode: result.reservationCode,
     };
   }

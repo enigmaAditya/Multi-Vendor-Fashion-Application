@@ -74,7 +74,9 @@ describe('Payouts & Commission Settlements System (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up database tables in order
+    await prisma.promotionLedger.deleteMany({});
+    await prisma.couponRedemption.deleteMany({});
+    await prisma.coupon.deleteMany({});
     await prisma.commissionLedger.deleteMany({});
     await prisma.payout.deleteMany({});
     await prisma.sellerLinkedAccount.deleteMany({});
@@ -82,6 +84,8 @@ describe('Payouts & Commission Settlements System (e2e)', () => {
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});
     await prisma.order.deleteMany({});
+    await prisma.inventoryReservation.deleteMany({});
+    await prisma.inventoryLedger.deleteMany({});
     await prisma.skuInventory.deleteMany({});
     await prisma.warehouse.deleteMany({});
     await prisma.sku.deleteMany({});
