@@ -21,11 +21,25 @@ export class NotificationTemplatesService {
     recipientRole: 'BUYER' | 'SELLER',
     eventPayload: Record<string, unknown>,
   ): NotificationPayload {
-    const rawOrderId = String(eventPayload.orderId || '');
-    const rawSubOrderId = String(eventPayload.subOrderId || '');
-    const rawAmount = String(eventPayload.amountCharged || eventPayload.amount || '');
-    const rawAwb = String(eventPayload.awbCode || '');
-    const rawCourier = String(eventPayload.courierName || 'Shiprocket');
+    const rawOrderId =
+      typeof eventPayload.orderId === 'string' ? eventPayload.orderId : '';
+    const rawSubOrderId =
+      typeof eventPayload.subOrderId === 'string'
+        ? eventPayload.subOrderId
+        : '';
+    const rawAmount =
+      eventPayload.amountCharged !== undefined &&
+      eventPayload.amountCharged !== null
+        ? String(eventPayload.amountCharged as string | number | bigint)
+        : eventPayload.amount !== undefined && eventPayload.amount !== null
+          ? String(eventPayload.amount as string | number | bigint)
+          : '';
+    const rawAwb =
+      typeof eventPayload.awbCode === 'string' ? eventPayload.awbCode : '';
+    const rawCourier =
+      typeof eventPayload.courierName === 'string'
+        ? eventPayload.courierName
+        : 'Shiprocket';
 
     const orderId = this.escapeHtml(rawOrderId);
     const subOrderId = this.escapeHtml(rawSubOrderId);
@@ -56,14 +70,21 @@ export class NotificationTemplatesService {
         return {
           subject: `Shipment Dispatched #${subOrderId.slice(0, 8)}`,
           body: `Your order shipment #${subOrderId} has been dispatched via ${courierName}. AWB: ${awbCode}.`,
-          data: { subOrderId: rawSubOrderId, awbCode: rawAwb, type: 'shipment.dispatched' },
+          data: {
+            subOrderId: rawSubOrderId,
+            awbCode: rawAwb,
+            type: 'shipment.dispatched',
+          },
         };
 
       case 'shipment.out_for_delivery':
         return {
           subject: `Out for Delivery #${subOrderId.slice(0, 8)}`,
           body: `Your package #${subOrderId} is out for delivery today via ${courierName}!`,
-          data: { subOrderId: rawSubOrderId, type: 'shipment.out_for_delivery' },
+          data: {
+            subOrderId: rawSubOrderId,
+            type: 'shipment.out_for_delivery',
+          },
         };
 
       case 'shipment.delivered':

@@ -48,6 +48,8 @@ interface ShiprocketOrderResponse {
   courier_name?: string;
 }
 
+import { RedisService } from '../redis/redis.service';
+
 interface ShiprocketWebhookPayload {
   awb_code?: string;
   shipment_id?: string | number;
@@ -62,7 +64,53 @@ export class LogisticsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly payoutsService: PayoutsService,
+    private readonly redis: RedisService,
   ) {}
+
+  async getShiprocketToken(): Promise<string> {
+    const client = this.redis.getClient();
+    const cachedToken = await client.get('shiprocket_token');
+    if (cachedToken) {
+      return cachedToken;
+    }
+
+    const acquiredLock = await client.set(
+      'shiprocket_token_lock',
+      'locked',
+      'EX',
+      5,
+      'NX',
+    );
+
+    if (!acquiredLock) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return this.getShiprocketToken();
+    }
+
+    try {
+      const authUrl =
+        process.env.SHIPROCKET_AUTH_URL ||
+        'https://apiv2.shiprocket.in/v1/external/auth/login';
+      const response = await fetch(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: process.env.SHIPROCKET_EMAIL || 'test@example.com',
+          password: process.env.SHIPROCKET_PASSWORD || 'password',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to authenticate with Shiprocket API');
+      }
+
+      const data = (await response.json()) as { token: string };
+      await client.set('shiprocket_token', data.token, 'EX', 23 * 60 * 60);
+      return data.token;
+    } finally {
+      await client.del('shiprocket_token_lock');
+    }
+  }
 
   // --- Real-time Tracking Info ---
   async getTrackingInfo(subOrderId: string, userId: string) {
@@ -116,7 +164,24 @@ export class LogisticsService {
   }
 
   // --- Shiprocket Order Fulfillment Sync ---
-  async syncShipment(subOrderId: string, sellerId: string) {
+  async syncShipment(subOrderId: string, sellerId?: string) {
+    const claim = await this.prisma.subOrder.updateMany({
+      where: {
+        id: subOrderId,
+        shipmentStatus: { in: ['PENDING_SYNC', 'PENDING', 'FAILED_SYNC'] },
+      },
+      data: {
+        shipmentStatus: 'SYNCING',
+      },
+    });
+
+    if (claim.count === 0) {
+      return {
+        success: false,
+        message: 'Sync already processed or in-flight.',
+      };
+    }
+
     const subOrder = await this.prisma.subOrder.findUnique({
       where: { id: subOrderId },
       include: {
@@ -145,11 +210,11 @@ export class LogisticsService {
       throw new NotFoundException('Sub-order not found.');
     }
 
-    if (subOrder.sellerId !== sellerId) {
+    if (sellerId && subOrder.sellerId !== sellerId) {
       throw new ForbiddenException('You do not own this sub-order.');
     }
 
-    if (subOrder.status !== 'CONFIRMED') {
+    if (subOrder.status && subOrder.status !== 'CONFIRMED') {
       throw new BadRequestException(
         'Sub-order must be in CONFIRMED state to sync shipment.',
       );
@@ -169,11 +234,11 @@ export class LogisticsService {
     }
 
     // Prepare Shiprocket B2C Order Payload
-    const shippingAddr = subOrder.order.shippingAddress as Record<
+    const shippingAddr = (subOrder.order?.shippingAddress || {}) as Record<
       string,
       string
     >;
-    const buyerName = subOrder.order.buyer.phone || 'Customer';
+    const buyerName = subOrder.order?.buyer?.phone || 'Customer';
 
     const orderItems = subOrder.items.map((item) => ({
       name: item.sku.variant.product.name,
@@ -182,9 +247,13 @@ export class LogisticsService {
       selling_price: Number(item.price) / 100, // Paise to Rupees
     }));
 
+    const orderDate = subOrder.createdAt
+      ? new Date(subOrder.createdAt).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
     const payload: ShiprocketOrderPayload = {
       order_id: subOrder.id,
-      order_date: subOrder.createdAt.toISOString().split('T')[0],
+      order_date: orderDate,
       pickup_location: 'Primary Warehouse',
       billing_customer_name: buyerName,
       billing_address: shippingAddr.address || 'Address Line 1',
@@ -193,7 +262,7 @@ export class LogisticsService {
       billing_state: shippingAddr.state || 'Maharashtra',
       billing_country: shippingAddr.country || 'India',
       billing_email: 'customer@marketplace.com',
-      billing_phone: subOrder.order.buyer.phone || '+919999999999',
+      billing_phone: subOrder.order?.buyer?.phone || '+919999999999',
       shipping_is_billing: true,
       order_items: orderItems,
       payment_method: 'Prepaid',

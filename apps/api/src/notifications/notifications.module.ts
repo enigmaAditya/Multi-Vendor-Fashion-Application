@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsService } from './notifications.service';
@@ -11,13 +10,7 @@ import { PushService } from './push.service';
 import { MockSmsService } from './mock-sms.service';
 
 @Module({
-  imports: [
-    PrismaModule,
-    AuthModule,
-    BullModule.registerQueue({
-      name: 'notifications-queue',
-    }),
-  ],
+  imports: [PrismaModule, AuthModule],
   controllers: [NotificationsController],
   providers: [
     NotificationsService,

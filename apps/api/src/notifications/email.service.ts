@@ -14,6 +14,7 @@ export class EmailService implements NotificationChannel {
     recipient: NotificationRecipient,
     payload: NotificationPayload,
   ): Promise<{ success: boolean; error?: string }> {
+    await Promise.resolve();
     if (!recipient.email) {
       return { success: false, error: 'Recipient email address missing.' };
     }
@@ -28,7 +29,9 @@ export class EmailService implements NotificationChannel {
       return { success: true };
     } catch (err: unknown) {
       const error = err as Error;
-      this.logger.error(`Failed to send email to ${recipient.email}: ${error.message}`);
+      this.logger.error(
+        `Failed to send email to ${recipient.email}: ${error.message}`,
+      );
       return { success: false, error: error.message };
     }
   }

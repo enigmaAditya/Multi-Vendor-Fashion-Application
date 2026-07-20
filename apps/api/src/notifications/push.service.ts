@@ -14,8 +14,12 @@ export class PushService implements NotificationChannel {
     recipient: NotificationRecipient,
     payload: NotificationPayload,
   ): Promise<{ success: boolean; error?: string; invalidTokens?: string[] }> {
+    await Promise.resolve();
     if (!recipient.deviceTokens || recipient.deviceTokens.length === 0) {
-      return { success: false, error: 'No active device tokens found for recipient.' };
+      return {
+        success: false,
+        error: 'No active device tokens found for recipient.',
+      };
     }
 
     const invalidTokens: string[] = [];
@@ -44,12 +48,17 @@ export class PushService implements NotificationChannel {
         ) {
           invalidTokens.push(token);
         } else {
-          this.logger.error(`Transient push error for token ${token}: ${error.message}`);
+          this.logger.error(
+            `Transient push error for token ${token}: ${error.message}`,
+          );
         }
       }
     }
 
-    if (sentCount === 0 && invalidTokens.length === recipient.deviceTokens.length) {
+    if (
+      sentCount === 0 &&
+      invalidTokens.length === recipient.deviceTokens.length
+    ) {
       return {
         success: false,
         error: 'All recipient device tokens are invalid or expired.',

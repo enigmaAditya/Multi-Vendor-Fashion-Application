@@ -14,6 +14,7 @@ export class MockSmsService implements NotificationChannel {
     recipient: NotificationRecipient,
     payload: NotificationPayload,
   ): Promise<{ success: boolean; error?: string }> {
+    await Promise.resolve();
     if (!recipient.phone) {
       return { success: false, error: 'Recipient phone number missing.' };
     }

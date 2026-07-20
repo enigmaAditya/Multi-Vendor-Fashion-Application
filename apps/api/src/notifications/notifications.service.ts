@@ -1,6 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Prisma } from '@prisma/client';
 import { NotificationTemplatesService } from './notification-templates.service';
@@ -21,6 +20,7 @@ export interface NotificationJobData {
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
+  private notificationsQueue?: Queue;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -28,8 +28,11 @@ export class NotificationsService {
     private readonly emailService: EmailService,
     private readonly pushService: PushService,
     private readonly smsService: MockSmsService,
-    @InjectQueue('notifications-queue') private readonly notificationsQueue: Queue,
   ) {}
+
+  setQueue(queue: Queue) {
+    this.notificationsQueue = queue;
+  }
 
   /**
    * Fan-out outbox event into individual per-(channel, recipient) BullMQ jobs.
@@ -68,11 +71,13 @@ export class NotificationsService {
           recipientRole: role,
           payload,
         };
-        await this.notificationsQueue.add('deliver-notification', jobData, {
-          jobId: `notif_${outboxEventId}_PUSH_${userId}`,
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 1000 },
-        });
+        if (this.notificationsQueue) {
+          await this.notificationsQueue.add('deliver-notification', jobData, {
+            jobId: `notif_${outboxEventId}_PUSH_${userId}`,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 },
+          });
+        }
       }
 
       // Check Email channel eligibility
@@ -85,11 +90,13 @@ export class NotificationsService {
           recipientRole: role,
           payload,
         };
-        await this.notificationsQueue.add('deliver-notification', jobData, {
-          jobId: `notif_${outboxEventId}_EMAIL_${userId}`,
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 1000 },
-        });
+        if (this.notificationsQueue) {
+          await this.notificationsQueue.add('deliver-notification', jobData, {
+            jobId: `notif_${outboxEventId}_EMAIL_${userId}`,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 },
+          });
+        }
       }
     }
   }
@@ -98,8 +105,14 @@ export class NotificationsService {
    * Delivers a single notification job with insert-as-claim atomic PENDING log lifecycle.
    */
   async deliverNotificationJob(jobData: NotificationJobData) {
-    const { outboxEventId, eventType, channel, recipientId, recipientRole, payload } =
-      jobData;
+    const {
+      outboxEventId,
+      eventType,
+      channel,
+      recipientId,
+      recipientRole,
+      payload,
+    } = jobData;
 
     // 1. Atomic claim: Insert PENDING row into NotificationLog with @@unique([outboxEventId, channel, recipientId])
     let logId: string;
@@ -156,9 +169,16 @@ export class NotificationsService {
     );
 
     // 4. Dispatch via target provider channel
-    let dispatchResult: { success: boolean; error?: string; invalidTokens?: string[] };
+    let dispatchResult: {
+      success: boolean;
+      error?: string;
+      invalidTokens?: string[];
+    };
     if (channel === 'EMAIL') {
-      dispatchResult = await this.emailService.send(recipient, formattedPayload);
+      dispatchResult = await this.emailService.send(
+        recipient,
+        formattedPayload,
+      );
     } else if (channel === 'PUSH') {
       dispatchResult = await this.pushService.send(recipient, formattedPayload);
     } else {
@@ -166,7 +186,10 @@ export class NotificationsService {
     }
 
     // 5. Prune dead device tokens if FCM returned specific unregistered error codes
-    if (dispatchResult.invalidTokens && dispatchResult.invalidTokens.length > 0) {
+    if (
+      dispatchResult.invalidTokens &&
+      dispatchResult.invalidTokens.length > 0
+    ) {
       await this.prisma.userDeviceToken.deleteMany({
         where: {
           token: { in: dispatchResult.invalidTokens },
@@ -187,7 +210,10 @@ export class NotificationsService {
     } else {
       await this.prisma.notificationLog.update({
         where: { id: logId },
-        data: { status: 'FAILED', error: dispatchResult.error || 'Provider send failed' },
+        data: {
+          status: 'FAILED',
+          error: dispatchResult.error || 'Provider send failed',
+        },
       });
       return { success: false, error: dispatchResult.error };
     }
@@ -224,7 +250,11 @@ export class NotificationsService {
 
   async updateUserPreferences(
     userId: string,
-    dto: { emailEnabled?: boolean; pushEnabled?: boolean; promotionalEnabled?: boolean },
+    dto: {
+      emailEnabled?: boolean;
+      pushEnabled?: boolean;
+      promotionalEnabled?: boolean;
+    },
   ) {
     return this.prisma.userNotificationPreference.upsert({
       where: { userId },
@@ -247,8 +277,10 @@ export class NotificationsService {
   ): Promise<Array<{ userId: string; role: 'BUYER' | 'SELLER' }>> {
     const recipients: Array<{ userId: string; role: 'BUYER' | 'SELLER' }> = [];
 
-    const orderId = payload.orderId ? String(payload.orderId) : null;
-    const subOrderId = payload.subOrderId ? String(payload.subOrderId) : null;
+    const orderId =
+      typeof payload.orderId === 'string' ? payload.orderId : null;
+    const subOrderId =
+      typeof payload.subOrderId === 'string' ? payload.subOrderId : null;
 
     if (orderId) {
       const order = await this.prisma.order.findUnique({

@@ -34,14 +34,18 @@ export class NotificationsController {
   @Post('device-tokens')
   @HttpCode(HttpStatus.CREATED)
   async registerDeviceToken(
-    @Req() req: { user: { id: string } },
+    @Req() req: { user: { sub?: string; id?: string } },
     @Body() dto: RegisterTokenDto,
   ) {
+    const userId = req.user.sub || req.user.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token.');
+    }
     if (!dto.token || typeof dto.token !== 'string') {
       throw new BadRequestException('Device token is required.');
     }
     return this.notificationsService.registerDeviceToken(
-      req.user.id,
+      userId,
       dto.token.trim(),
       dto.platform || 'WEB',
     );
@@ -50,22 +54,34 @@ export class NotificationsController {
   @Delete('device-tokens/:token')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeDeviceToken(
-    @Req() req: { user: { id: string } },
+    @Req() req: { user: { sub?: string; id?: string } },
     @Param('token') token: string,
   ) {
-    await this.notificationsService.removeDeviceToken(req.user.id, token);
+    const userId = req.user.sub || req.user.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token.');
+    }
+    await this.notificationsService.removeDeviceToken(userId, token);
   }
 
   @Get('preferences')
-  async getPreferences(@Req() req: { user: { id: string } }) {
-    return this.notificationsService.getUserPreferences(req.user.id);
+  async getPreferences(@Req() req: { user: { sub?: string; id?: string } }) {
+    const userId = req.user.sub || req.user.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token.');
+    }
+    return this.notificationsService.getUserPreferences(userId);
   }
 
   @Patch('preferences')
   async updatePreferences(
-    @Req() req: { user: { id: string } },
+    @Req() req: { user: { sub?: string; id?: string } },
     @Body() dto: UpdatePreferencesDto,
   ) {
-    return this.notificationsService.updateUserPreferences(req.user.id, dto);
+    const userId = req.user.sub || req.user.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token.');
+    }
+    return this.notificationsService.updateUserPreferences(userId, dto);
   }
 }
