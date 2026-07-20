@@ -179,3 +179,93 @@ export async function fetchRecentlyViewed(token: string, limit = 8): Promise<Sea
   }
   return res.json();
 }
+
+// 9. Coupon Discount Validation Preview (POST /coupons/validate)
+export async function validateCoupon(
+  token: string,
+  code: string,
+  cartItems: { skuId: string; quantity: number }[],
+): Promise<{ coupon: { id: string; code: string; discountType: string; fundingType: string }; discountAmount: string; qualifyingSubtotal: string }> {
+  const res = await fetch(`${API_BASE_URL}/coupons/validate`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ code, cartItems }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Invalid or expired coupon code' }));
+    throw new Error(err.message || 'Coupon validation failed');
+  }
+  return res.json();
+}
+
+// 10. Initialize Checkout Session (POST /orders/checkout - Server-Authoritative)
+export async function initializeCheckout(
+  token: string,
+  payload: {
+    cartItems: { skuId: string; quantity: number }[];
+    shippingAddress: {
+      fullName: string;
+      phone: string;
+      street: string;
+      city: string;
+      state: string;
+      pincode: string;
+    };
+    couponCode?: string;
+  },
+): Promise<{
+  orderId: string;
+  gatewayOrderId: string;
+  totalAmount: string;
+  discountAmount: string;
+  amountCharged: string;
+  reservationCode: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/orders/checkout`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to initialize checkout session' }));
+    throw new Error(err.message || 'Checkout initialization failed');
+  }
+  return res.json();
+}
+
+// 11. Single Order Status Lookup for Polling (GET /orders/:id)
+export async function fetchOrderById(
+  token: string,
+  orderId: string,
+): Promise<{
+  id: string;
+  buyerId: string;
+  paymentStatus: string; // "PENDING", "PAID", "REFUND_REQUIRED", "FAILED"
+  totalAmount: string;
+  discountAmount: string;
+  amountCharged: string;
+  shippingAddress: Record<string, unknown>;
+  createdAt: string;
+  subOrders?: Array<{
+    id: string;
+    status: string;
+    amount: string;
+    items?: Array<{ id: string; price: string; quantity: number }>;
+  }>;
+}> {
+  const res = await fetch(`${API_BASE_URL}/orders/${encodeURIComponent(orderId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to fetch order details' }));
+    throw new Error(err.message || 'Order lookup failed');
+  }
+  return res.json();
+}

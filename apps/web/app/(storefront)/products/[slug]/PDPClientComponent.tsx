@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ProductDetail, SkuItem, formatRupees, trackProductView } from '../../../lib/storefront-client';
+import { useCart } from '../../../lib/cart-context';
 
 interface PDPClientComponentProps {
   product: ProductDetail;
@@ -13,6 +14,9 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
   const [selectedVariant, setSelectedVariant] = useState(primaryVariant);
   const [selectedSku, setSelectedSku] = useState<SkuItem | undefined>(primaryVariant?.skus?.[0]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [addedNotice, setAddedNotice] = useState(false);
+
+  const { addToCart } = useCart();
 
   // Fire-and-forget view tracking on mount
   useEffect(() => {
@@ -27,6 +31,20 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
 
   const currentPricePaise = selectedSku?.price || primaryVariant?.skus?.[0]?.price || '0';
   const currentQuantity = selectedSku?.quantity !== undefined ? selectedSku.quantity : 10;
+
+  const handleAddToCart = () => {
+    if (!selectedSku) return;
+    addToCart({
+      skuId: selectedSku.id,
+      skuCode: selectedSku.skuCode,
+      quantity: 1,
+      productName: product.name,
+      pricePaise: selectedSku.price,
+      imageUrl: images[0]?.url,
+    });
+    setAddedNotice(true);
+    setTimeout(() => setAddedNotice(false), 2500);
+  };
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) minmax(320px, 1fr)', gap: '40px' }}>
@@ -140,10 +158,17 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
           </div>
         )}
 
-        {/* Add to Cart CTA Placeholder */}
+        {/* Add to Cart CTA */}
         <div style={{ marginTop: '32px' }}>
-          <button className="btn btn-primary" style={{ width: '100%', padding: '14px', fontSize: '1rem' }}>
-            Add to Bag — {formatRupees(currentPricePaise)}
+          <button
+            onClick={handleAddToCart}
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
+            disabled={currentQuantity <= 0}
+          >
+            {addedNotice
+              ? '✓ Added to Bag!'
+              : `Add to Bag — ${formatRupees(currentPricePaise)}`}
           </button>
         </div>
 

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CategoryNode } from '../../lib/storefront-client';
+import { useCart } from '../../lib/cart-context';
 
 interface NavbarProps {
   categories?: CategoryNode[];
@@ -12,6 +13,9 @@ interface NavbarProps {
 export function Navbar({ categories = [] }: NavbarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
+  const { cartItems } = useCart();
+
+  const totalItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +55,12 @@ export function Navbar({ categories = [] }: NavbarProps) {
         <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <Link href="/products" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
             All Products
+          </Link>
+          <Link href="/cart" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>Bag</span>
+            <span className="badge badge-primary" style={{ background: 'var(--accent-primary)', color: '#fff', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem' }}>
+              {totalItemCount}
+            </span>
           </Link>
           <Link href="/admin" style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-primary)' }}>
             Operator Portal
