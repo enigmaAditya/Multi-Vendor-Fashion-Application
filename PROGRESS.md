@@ -164,6 +164,9 @@
   - Passes net `amountCharged` to Razorpay gateway API (`POST /v1/orders`) so customer is charged the exact discounted amount
   - Performs atomic claim on global redemption counter (`UPDATE coupons SET current_redemptions = current_redemptions + 1 WHERE ...`) inside checkout transaction
   - Atomically logs `PromotionLedger` (`PLATFORM_PROMO_EXPENSE`) for platform-funded discounts
-- [x] Implemented explicit coupon funding model (`PLATFORM` vs `SELLER`) preserving line-231 payout reconciliation invariant without negative commissions
+- [x] Implemented dual coupon funding model (`PLATFORM` vs `SELLER`):
+  - Platform-funded: sub-orders remain undiscounted, platform absorbs discount via `PromotionLedger` (`PLATFORM_PROMO_EXPENSE`), sellers receive full net entitlement.
+  - Seller-funded: discount is deducted directly from the funding seller's `subOrder.amount`, funding seller bears the discount directly, platform expense equals 0.
+  - Seller discount overflow capping: seller-funded discounts are capped to the funding seller's qualifying cart subtotal, guaranteeing $\sum \text{SubOrder.amount} \equiv \text{amountCharged}$ across multi-vendor orders with 0 paise drift.
 - [x] Created `CouponsController` exposing `POST /coupons`, `GET /coupons`, `POST /coupons/validate`, and `PATCH /coupons/:id/status`
-- [x] Wrote 7 unit tests and 4 E2E integration tests covering gateway net amount charging, deep discount settlement & line-231 reconciliation, 5-way concurrent claims on single-use coupons, and per-user limit enforcement
+- [x] Wrote 8 unit tests and 6 E2E integration tests covering gateway net amount charging, deep discount settlement & line-231 reconciliation, SELLER funding sub-order reduction, multi-vendor discount capping, 5-way concurrent claims on single-use coupons, and per-user limit enforcement
