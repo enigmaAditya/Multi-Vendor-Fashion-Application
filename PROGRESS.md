@@ -231,6 +231,22 @@
 - [x] Executed `pnpm --filter web run lint` — **0 Errors, 0 Warnings**
 - [x] Executed Next.js Production Build (`pnpm --filter web run build`) — **Completed successfully in 1.6s**
 
+### Week 15 — Customer Storefront: Browse & Discovery (Phase P14a — COMPLETE)
+
+**Done:**
+
+- [x] Verified exact backend REST endpoint routes (`GET /categories/tree`, `GET /products/:slug`, `GET /search`, `POST /recommendations/views/:productId`)
+- [x] Built strongly-typed storefront API client (`apps/web/app/lib/storefront-client.ts`) with non-blocking fire-and-forget product view tracking (`.catch(() => {})`)
+- [x] Implemented Next.js Server Components with dynamic SSR metadata (`generateMetadata`) and Schema.org JSON-LD Product structured data for SEO
+- [x] Created storefront pages and reusable UI components (`Navbar`, `Footer`, `ProductCard`, `RecommendationCarousel`):
+  - **Storefront Home (`/`)**: Hero banner, category grid, and *Trending Products* recommendation carousel
+  - **Product Listing Page (`/products`)**: Instant Meilisearch search, category filter sidebar, and grid of `LIVE` products
+  - **Product Detail Page (`/products/[slug]`)**: Dynamic SKU variant selector (size, color, stock availability, price in Rupees), image gallery, fire-and-forget view tracking, and 2 discovery carousels (*Similar Products*, *Customers Also Bought*)
+- [x] Relocated Admin Dashboard cleanly to `apps/web/app/admin/page.tsx`
+- [x] Executed `pnpm --filter web run typecheck` — **0 Errors**
+- [x] Executed `pnpm --filter web run lint` — **0 Errors, 0 Warnings**
+- [x] Executed Next.js Production Build (`pnpm --filter web run build`) — **Successfully compiled 5 static/dynamic SSR routes in 1.8s**
+
 ---
 
 ## 🏆 Backend Core Completion Summary (13 / 13 Modules Complete)
