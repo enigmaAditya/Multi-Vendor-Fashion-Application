@@ -41,18 +41,46 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
 
     const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
 
-    buyer1Token = await jwtService.signAsync({ sub: buyer1Id, roles: ['USER'] }, { secret, expiresIn: '15m' });
-    buyer2Token = await jwtService.signAsync({ sub: buyer2Id, roles: ['USER'] }, { secret, expiresIn: '15m' });
-    seller1Token = await jwtService.signAsync({ sub: seller1Id, roles: ['SELLER'] }, { secret, expiresIn: '15m' });
-    seller2Token = await jwtService.signAsync({ sub: seller2Id, roles: ['SELLER'] }, { secret, expiresIn: '15m' });
+    buyer1Token = await jwtService.signAsync(
+      { sub: buyer1Id, roles: ['USER'] },
+      { secret, expiresIn: '15m' },
+    );
+    buyer2Token = await jwtService.signAsync(
+      { sub: buyer2Id, roles: ['USER'] },
+      { secret, expiresIn: '15m' },
+    );
+    seller1Token = await jwtService.signAsync(
+      { sub: seller1Id, roles: ['SELLER'] },
+      { secret, expiresIn: '15m' },
+    );
+    seller2Token = await jwtService.signAsync(
+      { sub: seller2Id, roles: ['SELLER'] },
+      { secret, expiresIn: '15m' },
+    );
 
     // Seed test users
     await prisma.user.createMany({
       data: [
-        { id: buyer1Id, phone: `+91911${Math.floor(1000000 + Math.random() * 9000000)}`, roles: ['USER'] },
-        { id: buyer2Id, phone: `+91912${Math.floor(1000000 + Math.random() * 9000000)}`, roles: ['USER'] },
-        { id: seller1Id, phone: `+91913${Math.floor(1000000 + Math.random() * 9000000)}`, roles: ['SELLER'] },
-        { id: seller2Id, phone: `+91914${Math.floor(1000000 + Math.random() * 9000000)}`, roles: ['SELLER'] },
+        {
+          id: buyer1Id,
+          phone: `+91911${Math.floor(1000000 + Math.random() * 9000000)}`,
+          roles: ['USER'],
+        },
+        {
+          id: buyer2Id,
+          phone: `+91912${Math.floor(1000000 + Math.random() * 9000000)}`,
+          roles: ['USER'],
+        },
+        {
+          id: seller1Id,
+          phone: `+91913${Math.floor(1000000 + Math.random() * 9000000)}`,
+          roles: ['SELLER'],
+        },
+        {
+          id: seller2Id,
+          phone: `+91914${Math.floor(1000000 + Math.random() * 9000000)}`,
+          roles: ['SELLER'],
+        },
       ],
     });
   });
@@ -75,12 +103,16 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
 
     adminRoutes.forEach((route) => {
       it(`should return 403 Forbidden for BUYER token on ${route.method.toUpperCase()} ${route.path}`, async () => {
-        const req = (request(app.getHttpServer() as App) as any)[route.method](route.path);
+        const req = (request(app.getHttpServer()) as any)[route.method](
+          route.path,
+        );
         await req.set('Authorization', `Bearer ${buyer1Token}`).expect(403);
       });
 
       it(`should return 403 Forbidden for SELLER token on ${route.method.toUpperCase()} ${route.path}`, async () => {
-        const req = (request(app.getHttpServer() as App) as any)[route.method](route.path);
+        const req = (request(app.getHttpServer()) as any)[route.method](
+          route.path,
+        );
         await req.set('Authorization', `Bearer ${seller1Token}`).expect(403);
       });
     });
@@ -100,7 +132,7 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
         },
       });
 
-      await request(app.getHttpServer() as App)
+      await request(app.getHttpServer())
         .get(`/orders/${order.id}`)
         .set('Authorization', `Bearer ${buyer2Token}`)
         .expect(404);
@@ -136,7 +168,7 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
         },
       });
 
-      await request(app.getHttpServer() as App)
+      await request(app.getHttpServer())
         .post(`/logistics/seller/sub-orders/${subOrderId}/dispatch`)
         .set('Authorization', `Bearer ${seller2Token}`)
         .expect(403);
@@ -145,9 +177,7 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
 
   describe('4. Health Check Verification', () => {
     it('should return 200 OK and UP status for GET /health', async () => {
-      const res = await request(app.getHttpServer() as App)
-        .get('/health')
-        .expect(200);
+      const res = await request(app.getHttpServer()).get('/health').expect(200);
 
       expect(res.body.status).toBe('OK');
       expect(res.body.services.database).toBe('UP');
