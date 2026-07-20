@@ -170,3 +170,17 @@
   - Seller discount overflow capping: seller-funded discounts are capped to the funding seller's qualifying cart subtotal, guaranteeing $\sum \text{SubOrder.amount} \equiv \text{amountCharged}$ across multi-vendor orders with 0 paise drift.
 - [x] Created `CouponsController` exposing `POST /coupons`, `GET /coupons`, `POST /coupons/validate`, and `PATCH /coupons/:id/status`
 - [x] Wrote 8 unit tests and 6 E2E integration tests covering gateway net amount charging, deep discount settlement & sub-order payout reconciliation (`netPayout + totalCommission === subOrder.amount`), SELLER funding sub-order reduction, multi-vendor discount capping, 5-way concurrent claims on single-use coupons, and per-user limit enforcement
+
+### Week 13 — Notifications System (Phase P11)
+
+**Done:**
+
+- [x] Added `NotificationLog`, `UserNotificationPreference`, and `UserDeviceToken` models to Prisma schema with `@map` annotations and composite unique constraint `@@unique([outboxEventId, channel, recipientId])`
+- [x] Updated `LogisticsService` to emit outbox events (`shipment.dispatched`, `shipment.out_for_delivery`, `shipment.delivered`) inside the atomic webhook transaction matching Shiprocket status strings
+- [x] Built multi-channel Notification Drivers (`EmailService`, `PushService` with FCM dead token pruning, `MockSmsService` for DLT-deferred SMS)
+- [x] Created `NotificationTemplatesService` implementing strict HTML/XSS entity escaping across all event types and recipient roles
+- [x] Implemented `NotificationsService` with fan-out job queueing (`notifications-queue`), atomic `PENDING` log insert-as-claim gate (P2002 constraint error handling), preference checking (`UserNotificationPreference`), and dead token pruning (`UserDeviceToken`)
+- [x] Built `NotificationsProcessor` outbox sweeper polling event types (`order.paid`, `shipment.dispatched`, `shipment.out_for_delivery`, `shipment.delivered`, `payout.settled`, `payment.refund_required`) without blocking Search or Logistics outbox sweepers
+- [x] Created `NotificationsController` with REST endpoints for FCM device token registration/deletion and user preference updates
+- [x] Wrote 7 unit tests and 4 E2E integration tests validating template XSS escaping, notification preferences, FCM dead token pruning, device token REST lifecycle, and atomic outbox fan-out dedup gate
+
