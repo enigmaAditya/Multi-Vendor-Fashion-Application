@@ -13,6 +13,7 @@ import { LogisticsModule } from './logistics/logistics.module';
 import { SearchModule } from './search/search.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { CouponsModule } from './coupons/coupons.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CouponsModule } from './coupons/coupons.module';
     SearchModule,
     ReviewsModule,
     CouponsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
