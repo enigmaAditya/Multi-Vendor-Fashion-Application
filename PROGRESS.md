@@ -213,6 +213,24 @@
 - [x] Executed full test suite (15 unit test suites / 91 tests, 14 E2E test suites / 52 tests) with **100% PASSING GREEN**
 - [x] Executed `pnpm --filter api run lint` and `pnpm --filter api run build` with **0 errors and 0 warnings**
 
+### Week 15 — Admin Dashboard Web UI (Phase P13b — COMPLETE)
+
+**Done:**
+
+- [x] Implemented Next.js 16 App Router UI (`apps/web`) with dark mode glassmorphism design system (`globals.css`), Google Fonts (`Outfit`/`Inter`), responsive data tables, status badges, and action modals
+- [x] Built strongly-typed admin API fetch client (`apps/web/app/lib/admin-client.ts`) with `formatRupees` currency converter handling Paise-to-Rupees conversions (e.g. `129900` $\rightarrow$ `₹1,299.00`)
+- [x] Built 6 interactive operator views in `apps/web/app/page.tsx`:
+  - **Overview**: KPI stat cards for Gross Merchandise Value (GMV), Platform Commissions, Settled Payouts, and Platform Promo Expenses
+  - **Seller KYC**: Status filter (`ALL`, `ACTIVE`, `SUSPENDED`) matching backend query parameters, seller list, and modal for approving/rejecting seller KYC
+  - **Catalog Moderation**: Product moderation queue cards showing title, slug, seller, category, and Approve (`LIVE`), Reject (`REJECTED`), Suspend (`SUSPENDED`) actions
+  - **Review Moderation**: Operator review approval/rejection interface
+  - **Commission Rules**: Category and seller commission rate override configurator
+  - **Financial Ledgers**: Real-time aggregated financial ledger breakdown cards
+- [x] Handled server-truth action state & explicit alert notifications (no silent failures or optimistic state misrepresentation)
+- [x] Executed `pnpm --filter web run typecheck` — **0 Errors**
+- [x] Executed `pnpm --filter web run lint` — **0 Errors, 0 Warnings**
+- [x] Executed Next.js Production Build (`pnpm --filter web run build`) — **Completed successfully in 1.6s**
+
 ---
 
 ## 🏆 Backend Core Completion Summary (13 / 13 Modules Complete)
