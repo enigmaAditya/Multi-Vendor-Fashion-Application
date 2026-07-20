@@ -15,6 +15,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { RecommendationsModule } from './recommendations/recommendations.module'
     CouponsModule,
     NotificationsModule,
     RecommendationsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
