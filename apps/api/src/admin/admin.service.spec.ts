@@ -7,7 +7,7 @@ import { NotFoundException } from '@nestjs/common';
 describe('AdminService', () => {
   let service: AdminService;
 
-  const mockPrisma = {
+  const mockPrisma: Record<string, any> = {
     user: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
@@ -26,7 +26,7 @@ describe('AdminService', () => {
     outboxEvent: {
       create: jest.fn(),
     },
-    $transaction: jest.fn((cb) => cb(mockPrisma)),
+    $transaction: jest.fn((cb: (tx: any) => unknown) => cb(mockPrisma)),
     $queryRaw: jest.fn(),
   };
 
