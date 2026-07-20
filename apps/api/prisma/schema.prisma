@@ -29,6 +29,9 @@ model User {
   sellerCoupons Coupon[]        @relation("SellerCoupons")
   couponRedemptions CouponRedemption[]
   linkedAccount SellerLinkedAccount?
+  notificationLogs NotificationLog[]
+  notificationPreference UserNotificationPreference?
+  deviceTokens UserDeviceToken[]
 
   @@map("users")
 }
@@ -564,6 +567,48 @@ model PromotionLedger {
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("promotion_ledger")
+}
+
+model NotificationLog {
+  id             String   @id @default(uuid(7))
+  outboxEventId  String   @map("outbox_event_id")
+  channel        String   // "PUSH", "EMAIL", "SMS"
+  recipientId    String   @map("recipient_id")
+  recipient      User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  status         String   @default("PENDING") // "PENDING", "SENT", "FAILED"
+  error          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([outboxEventId, channel, recipientId])
+  @@index([recipientId])
+  @@map("notification_logs")
+}
+
+model UserNotificationPreference {
+  id                 String   @id @default(uuid(7))
+  userId             String   @unique @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEnabled       Boolean  @default(true) @map("email_enabled")
+  pushEnabled        Boolean  @default(true) @map("push_enabled")
+  promotionalEnabled Boolean  @default(true) @map("promotional_enabled")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("user_notification_preferences")
+}
+
+model UserDeviceToken {
+  id        String   @id @default(uuid(7))
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   // "WEB", "ANDROID", "IOS"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("user_device_tokens")
 }
 
 
