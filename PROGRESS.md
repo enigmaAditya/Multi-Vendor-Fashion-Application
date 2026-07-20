@@ -276,9 +276,10 @@ All 13 core backend modules are implemented, tested, linted, built, and verified
 - **Phase P14b**: Customer Storefront — Cart & Atomic Checkout Flow (`apps/web/app/(storefront)/cart`, `checkout`, `orders/confirmation`, and `GET /orders/:id` with IDOR protection).
 - **Phase P14c**: Customer Storefront — Post-Purchase & Reviews (`apps/web/app/(storefront)/orders`, `orders/[id]`, and `ReviewFormModal.tsx`).
 - **Phase P15**: Seller Merchant Portal (`apps/web/app/seller/page.tsx` with catalog creation, stock replenishment, AWB dispatch, and payout ledgers).
+- **Phase P16**: Pre-Production Security Sweep, Load Testing & Launch Readiness (`GET /health`, `security-sweep.e2e-spec.ts`, k6 load scripts, and `PRODUCTION_LAUNCH_CHECKLIST.md`).
 
 ## Overall Quality & Verification Metrics
 - **NestJS Backend Unit Tests**: 15 Test Suites, 91 Tests (100% Passing Green).
-- **NestJS Backend E2E Tests**: 14 Test Suites, 53 Tests (100% Passing Green).
-- **Next.js Web App Build**: `pnpm --filter web run build` (Next.js 16.2.0 production build compiled 11 routes in 0.82s with 0 Errors).
+- **NestJS Backend E2E Tests**: 15 Test Suites, 71 Tests (100% Passing Green, including role escalation & IDOR sweeps).
+- **Next.js Web App Build**: `pnpm --filter web run build` (Next.js 16.2.0 production build compiled 11 routes in 0.78s with 0 Errors).
 - **ESLint & Typecheck**: `pnpm --filter web run typecheck` & `pnpm --filter web run lint` (0 Errors, 0 Warnings).
