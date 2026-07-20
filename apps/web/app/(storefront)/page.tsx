@@ -61,7 +61,7 @@ export default async function StorefrontHomePage() {
         />
 
         {/* Catalog Highlights */}
-        {catalog.items.length > 0 && (
+        {(catalog?.items?.length ?? 0) > 0 && (
           <section style={{ marginTop: '48px' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '20px' }}>New Arrivals</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>

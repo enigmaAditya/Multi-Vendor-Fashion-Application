@@ -75,13 +75,40 @@ export interface SearchResponse {
   limit: number;
 }
 
+function ensureProductArray(data: unknown): SearchProductCard[] {
+  const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(d.hits)
+      ? d.hits
+      : Array.isArray(d.items)
+        ? d.items
+        : [];
+  return list.map((item: unknown) => {
+    const h = (typeof item === 'object' && item !== null ? item : {}) as Record<string, unknown>;
+    return {
+      id: String(h.id || ''),
+      name: String(h.name || h.title || 'Product'),
+      slug: String(h.slug || ''),
+      brandName: h.brandName ? String(h.brandName) : undefined,
+      categoryName: h.categoryName ? String(h.categoryName) : undefined,
+      pricePaise: String(h.pricePaise ?? h.minPrice ?? h.price ?? '0'),
+      imageUrl: h.imageUrl ? String(h.imageUrl) : undefined,
+      averageRating: typeof h.averageRating === 'number' ? h.averageRating : 0,
+      totalReviews: typeof h.totalReviews === 'number' ? h.totalReviews : 0,
+      inStock: Boolean(h.inStock ?? true),
+    };
+  });
+}
+
 // 1. Fetch Categories Tree (GET /categories/tree)
 export async function fetchCategories(): Promise<CategoryNode[]> {
   const res = await fetch(`${API_BASE_URL}/categories/tree`, { cache: 'no-store' });
   if (!res.ok) {
     return [];
   }
-  return res.json();
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data : [];
 }
 
 // 2. Search Products (GET /search)
@@ -105,9 +132,22 @@ export async function searchProducts(params: {
 
   const res = await fetch(url.toString(), { cache: 'no-store' });
   if (!res.ok) {
-    return { items: [], total: 0, page: 1, limit: 20 };
+    return { items: [], total: 0, page: params.page ?? 1, limit: params.limit ?? 20 };
   }
-  return res.json();
+  const raw = await res.json().catch(() => ({}));
+  const items = ensureProductArray(raw);
+  const total = typeof raw?.estimatedTotalHits === 'number'
+    ? raw.estimatedTotalHits
+    : typeof raw?.total === 'number'
+      ? raw.total
+      : items.length;
+
+  return {
+    items,
+    total,
+    page: params.page ?? 1,
+    limit: params.limit ?? 20,
+  };
 }
 
 // 3. Fetch Product by Slug (GET /products/:slug)
@@ -116,14 +156,14 @@ export async function fetchProductBySlug(slug: string): Promise<ProductDetail | 
   if (!res.ok) {
     return null;
   }
-  return res.json();
+  return res.json().catch(() => null);
 }
 
 // 4. Non-Blocking Fire-and-Forget Product View Tracking (POST /recommendations/views/:productId)
 export function trackProductView(productId: string, token?: string): void {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) {
-    headers.Authorization = `Bearer ${token}`;
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   fetch(`${API_BASE_URL}/recommendations/views/${encodeURIComponent(productId)}`, {
@@ -140,7 +180,8 @@ export async function fetchTrendingProducts(limit = 10): Promise<SearchProductCa
   if (!res.ok) {
     return [];
   }
-  return res.json();
+  const data = await res.json().catch(() => []);
+  return ensureProductArray(data);
 }
 
 // 6. Fetch Similar Products (GET /recommendations/similar/:productId)
@@ -152,7 +193,8 @@ export async function fetchSimilarProducts(productId: string, limit = 8): Promis
   if (!res.ok) {
     return [];
   }
-  return res.json();
+  const data = await res.json().catch(() => []);
+  return ensureProductArray(data);
 }
 
 // 7. Fetch Customers Also Bought (GET /recommendations/also-bought/:productId)
@@ -164,7 +206,8 @@ export async function fetchAlsoBought(productId: string, limit = 8): Promise<Sea
   if (!res.ok) {
     return [];
   }
-  return res.json();
+  const data = await res.json().catch(() => []);
+  return ensureProductArray(data);
 }
 
 // 8. Fetch Recently Viewed Products (GET /recommendations/recently-viewed)
@@ -177,7 +220,8 @@ export async function fetchRecentlyViewed(token: string, limit = 8): Promise<Sea
   if (!res.ok) {
     return [];
   }
-  return res.json();
+  const data = await res.json().catch(() => []);
+  return ensureProductArray(data);
 }
 
 // 9. Coupon Discount Validation Preview (POST /coupons/validate)

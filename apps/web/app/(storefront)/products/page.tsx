@@ -39,7 +39,7 @@ export default async function ProductListingPage({ searchParams }: PLPPageProps)
             {q ? `Search Results for "${q}"` : 'All Products'}
           </h2>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Showing {searchResult.items.length} of {searchResult.total} live products
+            Showing {searchResult?.items?.length ?? 0} of {searchResult?.total ?? 0} live products
           </p>
         </div>
 
@@ -74,7 +74,7 @@ export default async function ProductListingPage({ searchParams }: PLPPageProps)
 
           {/* Product Grid */}
           <div>
-            {searchResult.items.length === 0 ? (
+            {(searchResult?.items?.length ?? 0) === 0 ? (
               <div className="glass-panel" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <h3>No live products found matching your search.</h3>
                 <p style={{ marginTop: '8px' }}>Try broadening your search term or clearing category filters.</p>
