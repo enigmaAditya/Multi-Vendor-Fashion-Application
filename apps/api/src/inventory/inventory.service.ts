@@ -162,9 +162,9 @@ export class InventoryService implements OnModuleDestroy {
     });
     if (!warehouse) throw new NotFoundException('Warehouse not found.');
 
-    // Enforce unique reservation code to prevent double claims
+    // Enforce unique reservation code per SKU to prevent double claims
     const existingRes = await client.inventoryReservation.findFirst({
-      where: { reservationCode },
+      where: { reservationCode, skuId },
     });
     if (existingRes) {
       throw new BadRequestException('Reservation code already used.');

@@ -236,6 +236,15 @@ export class CouponsService {
       ? 'SELLER'
       : dto.fundingType || 'PLATFORM';
 
+    const sellerId =
+      creatorSellerId || (dto as { sellerId?: string }).sellerId || null;
+
+    if (fundingType === 'SELLER' && !sellerId) {
+      throw new BadRequestException(
+        'Seller-funded coupons must specify a valid sellerId.',
+      );
+    }
+
     const created = await this.prisma.coupon.create({
       data: {
         code,
@@ -251,7 +260,7 @@ export class CouponsService {
           : BigInt(0),
         maxRedemptions: dto.maxRedemptions ?? null,
         maxRedemptionsPerUser: dto.maxRedemptionsPerUser ?? 1,
-        sellerId: creatorSellerId || null,
+        sellerId,
         categoryId: dto.categoryId || null,
         startsAt: dto.startsAt ? new Date(dto.startsAt) : new Date(),
         expiresAt: new Date(dto.expiresAt),

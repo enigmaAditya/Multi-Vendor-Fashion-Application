@@ -215,5 +215,56 @@ describe('CouponsService', () => {
         ]),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should cap SELLER-funded coupon discount to the funding seller qualifying subtotal in a multi-seller cart', async () => {
+      mockPrisma.coupon.findUnique.mockResolvedValue({
+        id: 'c-4',
+        code: 'SELLER100',
+        discountType: 'FIXED',
+        discountValue: BigInt(10000), // ₹100 discount
+        fundingType: 'SELLER',
+        maxDiscountAmount: null,
+        minOrderAmount: BigInt(0),
+        maxRedemptions: null,
+        currentRedemptions: 0,
+        maxRedemptionsPerUser: 5,
+        isActive: true,
+        startsAt: new Date(Date.now() - 10000),
+        expiresAt: new Date(Date.now() + 10000),
+        sellerId: 'seller-A',
+        categoryId: null,
+      });
+      mockPrisma.couponRedemption.count.mockResolvedValue(0);
+
+      // Multi-seller cart: Seller A item ₹80 (8000 paise), Seller B item ₹500 (50000 paise).
+      // Discount is ₹100 (10000 paise), but Seller A item total is only ₹80 (8000 paise).
+      // Should cap discount to Seller A subtotal: 8000 paise.
+      mockPrisma.sku.findMany.mockResolvedValue([
+        {
+          id: 'sku-A',
+          price: BigInt(8000),
+          sellerId: 'seller-A',
+          variant: { product: { categoryId: 'cat-1' } },
+        },
+        {
+          id: 'sku-B',
+          price: BigInt(50000),
+          sellerId: 'seller-B',
+          variant: { product: { categoryId: 'cat-1' } },
+        },
+      ]);
+
+      const result = await service.validateAndCalculateDiscount(
+        'SELLER100',
+        'user-1',
+        [
+          { skuId: 'sku-A', quantity: 1 },
+          { skuId: 'sku-B', quantity: 1 },
+        ],
+      );
+
+      expect(result.discountAmount).toBe(BigInt(8000));
+      expect(result.qualifyingSubtotal).toBe(BigInt(8000));
+    });
   });
 });

@@ -414,6 +414,146 @@ describe('Coupons & Promotions System (e2e)', () => {
       });
       expect(promoLedgers).toHaveLength(0);
     });
+
+    it('should cap SELLER-funded discount to funding seller subtotal in multi-seller cart and preserve multi-vendor sub-order reconciliation', async () => {
+      // 1. Create Seller B and second product/SKU
+      const sellerBId = crypto.randomUUID();
+      await prisma.user.create({
+        data: { id: sellerBId, phone: '+919999999995', roles: ['SELLER'] },
+      });
+      const warehouse = await prisma.warehouse.findFirstOrThrow();
+      const category = await prisma.category.findFirstOrThrow();
+
+      const productA = await prisma.product.create({
+        data: {
+          name: 'Item A',
+          slug: 'item-a',
+          sellerId,
+          categoryId: category.id,
+          status: 'LIVE',
+        },
+      });
+      const variantA = await prisma.productVariant.create({
+        data: { productId: productA.id, color: 'Red' },
+      });
+      const skuA = await prisma.sku.create({
+        data: {
+          variantId: variantA.id,
+          skuCode: 'ITEM-A-SKU',
+          sellerId,
+          size: 'M',
+          price: BigInt(8000), // ₹80 (8000 paise)
+          mrp: BigInt(10000),
+        },
+      });
+      await prisma.skuInventory.create({
+        data: {
+          skuId: skuA.id,
+          warehouseId: warehouse.id,
+          onHand: 50,
+          reserved: 0,
+        },
+      });
+
+      const productB = await prisma.product.create({
+        data: {
+          name: 'Item B',
+          slug: 'item-b',
+          sellerId: sellerBId,
+          categoryId: category.id,
+          status: 'LIVE',
+        },
+      });
+      const variantB = await prisma.productVariant.create({
+        data: { productId: productB.id, color: 'Blue' },
+      });
+      const skuB = await prisma.sku.create({
+        data: {
+          variantId: variantB.id,
+          skuCode: 'ITEM-B-SKU',
+          sellerId: sellerBId,
+          size: 'M',
+          price: BigInt(50000), // ₹500 (50000 paise)
+          mrp: BigInt(60000),
+        },
+      });
+      await prisma.skuInventory.create({
+        data: {
+          skuId: skuB.id,
+          warehouseId: warehouse.id,
+          onHand: 50,
+          reserved: 0,
+        },
+      });
+
+      // 2. Create SELLER-funded ₹100 (10000 paise) coupon for Seller A
+      await prisma.coupon.create({
+        data: {
+          code: 'SELLER_OVERFLOW',
+          discountType: 'FIXED',
+          discountValue: BigInt(10000), // ₹100 > Seller A's ₹80 item
+          fundingType: 'SELLER',
+          sellerId,
+          isActive: true,
+          expiresAt: new Date(Date.now() + 86400000),
+        },
+      });
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'order_gw_overflow',
+            id_transfer: 'trf_overflow',
+          }),
+      });
+
+      // 3. Checkout with Item A (Seller A ₹80) + Item B (Seller B ₹500) using coupon SELLER_OVERFLOW
+      const checkoutRes = await request(app.getHttpServer())
+        .post('/orders/checkout')
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .send({
+          cartItems: [
+            { skuId: skuA.id, quantity: 1 },
+            { skuId: skuB.id, quantity: 1 },
+          ],
+          shippingAddress: { city: 'Mumbai' },
+          couponCode: 'SELLER_OVERFLOW',
+        })
+        .expect(201);
+
+      const body = checkoutRes.body as {
+        orderId: string;
+        totalAmount: string;
+        discountAmount: string;
+        amountCharged: string;
+      };
+
+      // Cart total: 8000 + 50000 = 58000 paise (₹580).
+      // Discount capped to Seller A subtotal: 8000 paise (₹80).
+      expect(body.totalAmount).toBe('58000');
+      expect(body.discountAmount).toBe('8000');
+      expect(body.amountCharged).toBe('50000');
+
+      // 4. Verify SubOrders: Seller A = 0 paise, Seller B = 50000 paise
+      const subOrders = await prisma.subOrder.findMany({
+        where: { orderId: body.orderId },
+      });
+      expect(subOrders).toHaveLength(2);
+
+      const subOrderA = subOrders.find((s) => s.sellerId === sellerId)!;
+      const subOrderB = subOrders.find((s) => s.sellerId === sellerBId)!;
+
+      expect(subOrderA.amount).toBe(BigInt(0));
+      expect(subOrderB.amount).toBe(BigInt(50000));
+
+      // Sum of suborders equals amountCharged exactly: 0 + 50000 === 50000
+      const sumSubOrders = subOrders.reduce(
+        (sum, s) => sum + s.amount,
+        BigInt(0),
+      );
+      expect(sumSubOrders.toString()).toBe(body.amountCharged);
+    });
   });
 
   describe('Concurrency & Per-User Redemption Limits', () => {
