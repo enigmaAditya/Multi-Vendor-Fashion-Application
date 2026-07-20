@@ -251,13 +251,13 @@ All 13 core backend modules are implemented, tested, linted, built, and verified
 | 10 | **Reviews System** | Verified purchase gate (PAID Order $\rightarrow$ Product hop), one review per user, XSS escaping | ✅ COMPLETE |
 | 11 | **Coupons & Promotions**| Dual funding (PLATFORM vs SELLER), seller discount capping, 0-drift payout reconciliation | ✅ COMPLETE |
 | 12 | **Notifications** | Deduplicated multi-channel fan-out (Email, FCM push with dead-token pruning, Mock SMS) | ✅ COMPLETE |
-| 13 | **Recommendations** | 4 discovery channels (Recently Viewed, Trending SQL Score, Similar, Also-Bought graph) | ✅ COMPLETE |
+| 14 | **Admin Control Surface** | Class & Route-level `@Roles('ADMIN')` gate, seller KYC, moderation, financial ledgers & Web UI | ✅ COMPLETE |
 
 **Verification & Quality Metrics:**
-- **Unit Tests**: 14 test suites / 85 tests (100% PASSING GREEN)
-- **E2E Integration Tests**: 13 test suites / 45 tests (100% PASSING GREEN)
-- **Lint & Build**: 0 errors, 0 warnings
-- **CI Status**: GitHub Actions Run #57 (Commit `cf775f6`) Success
+- **Unit Tests**: 15 test suites / 91 tests (100% PASSING GREEN)
+- **E2E Integration Tests**: 14 test suites / 52 tests (100% PASSING GREEN)
+- **Frontend Typecheck & Build**: Next.js 16 Web App Build (0 errors, 0 warnings)
+- **CI Status**: GitHub Actions Green on `main` (Commit `59d9ba6`)
 
 
 
