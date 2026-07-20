@@ -176,7 +176,7 @@
 **Done:**
 
 - [x] Added `NotificationLog`, `UserNotificationPreference`, and `UserDeviceToken` models to Prisma schema with `@map` annotations and composite unique constraint `@@unique([outboxEventId, channel, recipientId])`
-- [x] Updated `LogisticsService` to emit outbox events (`shipment.dispatched`, `shipment.out_for_delivery`, `shipment.delivered`) inside the atomic webhook transaction matching Shiprocket status strings
+- [x] Updated `LogisticsService` to emit outbox events (`shipment.dispatched`, `shipment.out_for_delivery`, `shipment.delivered`) inside the atomic webhook transaction matching Shiprocket status strings (added explicitly as part of Phase P11 to align event emitters with notification subscribers)
 - [x] Built multi-channel Notification Drivers (`EmailService`, `PushService` with FCM dead token pruning, `MockSmsService` for DLT-deferred SMS)
 - [x] Created `NotificationTemplatesService` implementing strict HTML/XSS entity escaping across all event types and recipient roles
 - [x] Implemented `NotificationsService` with fan-out job queueing (`notifications-queue`), atomic `PENDING` log insert-as-claim gate (P2002 constraint error handling), preference checking (`UserNotificationPreference`), and dead token pruning (`UserDeviceToken`)
