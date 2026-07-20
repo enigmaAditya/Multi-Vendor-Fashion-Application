@@ -5,12 +5,21 @@ import {
   Param,
   Headers,
   UseGuards,
+  Req,
   BadRequestException,
 } from '@nestjs/common';
 import { LogisticsService } from './logistics.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { Request } from 'express';
+
+interface RequestWithUser extends Request {
+  user: {
+    sub: string;
+    roles: string[];
+  };
+}
 
 @Controller('logistics')
 export class LogisticsController {
@@ -32,6 +41,20 @@ export class LogisticsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   async manualSync(@Param('subOrderId') subOrderId: string) {
+    if (!subOrderId) {
+      throw new BadRequestException('subOrderId is required.');
+    }
+    return this.logisticsService.syncShipment(subOrderId);
+  }
+
+  // --- Seller Sub-Order Dispatch Trigger ---
+  @Post('seller/sub-orders/:subOrderId/dispatch')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SELLER', 'ADMIN')
+  async sellerDispatch(
+    @Req() req: RequestWithUser,
+    @Param('subOrderId') subOrderId: string,
+  ) {
     if (!subOrderId) {
       throw new BadRequestException('subOrderId is required.');
     }
