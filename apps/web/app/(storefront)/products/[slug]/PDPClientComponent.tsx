@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductDetail, SkuItem, formatRupees, trackProductView } from '../../../lib/storefront-client';
 import { useCart } from '../../../lib/cart-context';
+import { ReviewFormModal } from '../../../components/storefront/ReviewFormModal';
 
 interface PDPClientComponentProps {
   product: ProductDetail;
@@ -15,6 +16,7 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
   const [selectedSku, setSelectedSku] = useState<SkuItem | undefined>(primaryVariant?.skus?.[0]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [addedNotice, setAddedNotice] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   const { addToCart } = useCart();
 
@@ -159,7 +161,7 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
         )}
 
         {/* Add to Cart CTA */}
-        <div style={{ marginTop: '32px' }}>
+        <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <button
             onClick={handleAddToCart}
             className="btn btn-primary"
@@ -170,7 +172,25 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
               ? '✓ Added to Bag!'
               : `Add to Bag — ${formatRupees(currentPricePaise)}`}
           </button>
+
+          <button
+            onClick={() => setIsReviewModalOpen(true)}
+            className="btn btn-secondary"
+            style={{ width: '100%', padding: '10px', fontSize: '0.875rem' }}
+          >
+            ★ Write a Customer Review
+          </button>
         </div>
+
+        <ReviewFormModal
+          productId={product.id}
+          productName={product.name}
+          isOpen={isReviewModalOpen}
+          onClose={() => setIsReviewModalOpen(false)}
+          onSuccess={() => {
+            // Revalidation callback
+          }}
+        />
 
         {/* Description */}
         <div style={{ marginTop: '32px', borderTop: '1px solid var(--border-subtle)', paddingTop: '24px' }}>

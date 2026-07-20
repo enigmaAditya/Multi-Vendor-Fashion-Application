@@ -269,3 +269,71 @@ export async function fetchOrderById(
   }
   return res.json();
 }
+
+// 12. Fetch Buyer Order History List (GET /orders/my-orders)
+export async function fetchMyOrders(token: string): Promise<{
+  orders: Array<{
+    id: string;
+    gatewayOrderId: string;
+    paymentStatus: string;
+    totalAmount: string;
+    discountAmount: string;
+    amountCharged: string;
+    createdAt: string;
+    subOrders?: Array<{
+      id: string;
+      sellerId: string;
+      status: string;
+      shipmentStatus?: string;
+      awbCode?: string;
+      courierName?: string;
+      amount: string;
+      items?: Array<{ id: string; price: string; quantity: number }>;
+    }>;
+  }>;
+}> {
+  const res = await fetch(`${API_BASE_URL}/orders/my-orders`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to fetch order history' }));
+    throw new Error(err.message || 'Order history lookup failed');
+  }
+  return res.json();
+}
+
+// 13. Create Product Review (POST /reviews)
+export async function createReview(
+  token: string,
+  payload: {
+    productId: string;
+    rating: number;
+    title?: string;
+    comment?: string;
+  },
+): Promise<{
+  id: string;
+  productId: string;
+  buyerId: string;
+  rating: number;
+  title?: string;
+  comment?: string;
+  status: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/reviews`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Failed to submit review' }));
+    const errorObj = new Error(err.message || 'Review submission failed') as Error & { status?: number };
+    errorObj.status = res.status;
+    throw errorObj;
+  }
+  return res.json();
+}
