@@ -32,6 +32,7 @@ model User {
   notificationLogs NotificationLog[]
   notificationPreference UserNotificationPreference?
   deviceTokens UserDeviceToken[]
+  productViews UserProductView[]
 
   @@map("users")
 }
@@ -132,6 +133,7 @@ model Product {
   variants    ProductVariant[]
   attributes  ProductAttributeValueMap[]
   reviews     Review[]
+  views       UserProductView[]
 
   @@index([categoryId])
   @@index([brandId])
@@ -609,6 +611,20 @@ model UserDeviceToken {
 
   @@index([userId])
   @@map("user_device_tokens")
+}
+
+model UserProductView {
+  id        String   @id @default(uuid(7))
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("user_product_views")
 }
 
 
