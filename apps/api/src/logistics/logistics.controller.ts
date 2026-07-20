@@ -58,6 +58,10 @@ export class LogisticsController {
     if (!subOrderId) {
       throw new BadRequestException('subOrderId is required.');
     }
-    return this.logisticsService.syncShipment(subOrderId);
+    const isAdmin = req.user.roles.includes('ADMIN');
+    return this.logisticsService.syncShipment(
+      subOrderId,
+      isAdmin ? undefined : req.user.sub,
+    );
   }
 }

@@ -487,5 +487,54 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       });
       expect(res.status).toBe('RETURNED');
     });
+
+    it('should reject seller dispatch attempt for sub-orders owned by another seller (403 Forbidden)', async () => {
+      // Create seller 2 and seller 2 token
+      const seller2Id = crypto.randomUUID();
+      await prisma.user.create({
+        data: {
+          id: seller2Id,
+          phone: `+91988${Math.floor(1000000 + Math.random() * 9000000)}`,
+          roles: ['SELLER'],
+        },
+      });
+      const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
+      const seller2Token = await jwtService.signAsync(
+        { sub: seller2Id, roles: ['SELLER'] },
+        { secret, expiresIn: '15m' },
+      );
+
+      // Create order and sub-order owned by seller 1
+      const orderId = crypto.randomUUID();
+      const subOrderId = crypto.randomUUID();
+      await prisma.order.create({
+        data: {
+          id: orderId,
+          buyerId,
+          gatewayOrderId: 'gateway-order-seller-ownership-test',
+          totalAmount: 10000n,
+          discountAmount: 0n,
+          amountCharged: 10000n,
+          paymentStatus: 'PAID',
+          shippingAddress: { city: 'Delhi' },
+        },
+      });
+      await prisma.subOrder.create({
+        data: {
+          id: subOrderId,
+          orderId,
+          sellerId, // Owned by seller 1
+          amount: 10000n,
+          status: 'CONFIRMED',
+          shipmentStatus: 'PENDING_SYNC',
+        },
+      });
+
+      // Seller 2 attempts to dispatch Seller 1's sub-order -> 403 Forbidden
+      await request(app.getHttpServer() as App)
+        .post(`/logistics/seller/sub-orders/${subOrderId}/dispatch`)
+        .set('Authorization', `Bearer ${seller2Token}`)
+        .expect(403);
+    });
   });
 });
