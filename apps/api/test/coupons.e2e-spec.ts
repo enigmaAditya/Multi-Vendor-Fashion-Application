@@ -329,6 +329,91 @@ describe('Coupons & Promotions System (e2e)', () => {
       });
       expect(promoLedger.amount).toBe(BigInt(25000));
     });
+
+    it('should correctly reduce seller subOrder.amount and bear discount on seller payout for SELLER-funded coupons', async () => {
+      // 1. Setup 10% commission rule for category
+      const category = await prisma.category.findFirstOrThrow();
+      await prisma.commissionRule.create({
+        data: { categoryId: category.id, ratePercent: 10.0 },
+      });
+
+      // 2. Create SELLER-funded ₹100 (10000 paise) coupon for sellerId
+      await prisma.coupon.create({
+        data: {
+          code: 'SELLER100',
+          discountType: 'FIXED',
+          discountValue: BigInt(10000),
+          fundingType: 'SELLER',
+          sellerId,
+          isActive: true,
+          expiresAt: new Date(Date.now() + 86400000),
+        },
+      });
+
+      await prisma.sellerLinkedAccount.create({
+        data: {
+          sellerId,
+          gatewayAccountId: 'acc_seller_seller100',
+          status: 'ACTIVE',
+        },
+      });
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'order_gw_seller100',
+            id_transfer: 'trf_seller100',
+          }),
+      });
+
+      // 3. Checkout with SELLER100
+      const checkoutRes = await request(app.getHttpServer())
+        .post('/orders/checkout')
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .send({
+          cartItems: [{ skuId, quantity: 1 }],
+          shippingAddress: { city: 'Mumbai' },
+          couponCode: 'SELLER100',
+        })
+        .expect(201);
+
+      const orderId = (checkoutRes.body as { orderId: string }).orderId;
+
+      // 4. Verify subOrder.amount was reduced to ₹900 (90000 paise)
+      const subOrder = await prisma.subOrder.findFirstOrThrow({
+        where: { orderId },
+      });
+      expect(subOrder.amount).toBe(BigInt(90000));
+
+      // 5. Mark order paid and sub-order confirmed
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { paymentStatus: 'PAID', gatewayPaymentId: 'pay_seller100' },
+      });
+      await prisma.subOrder.update({
+        where: { id: subOrder.id },
+        data: { status: 'CONFIRMED' },
+      });
+
+      // 6. Process payout delivery settlement
+      await payoutsService.processDelivery(subOrder.id);
+      await payoutsService.settlePayout(subOrder.id);
+
+      const payoutResult = await prisma.payout.findUniqueOrThrow({
+        where: { subOrderId: subOrder.id },
+      });
+
+      expect(payoutResult.status).toBe('SUCCESS');
+      // Seller net payout: ₹900 (subOrder.amount) - 10% Commission on item (₹100 = 10000 paise) = Net ₹800 (80000 paise)
+      expect(payoutResult.amount).toBe(BigInt(80000));
+
+      // Verify NO PromotionLedger entry was written (seller funded, not platform)
+      const promoLedgers = await prisma.promotionLedger.findMany({
+        where: { orderId },
+      });
+      expect(promoLedgers).toHaveLength(0);
+    });
   });
 
   describe('Concurrency & Per-User Redemption Limits', () => {

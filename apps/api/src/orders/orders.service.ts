@@ -280,10 +280,22 @@ export class OrdersService {
       );
 
       for (const [sellerId, items] of Object.entries(itemsBySeller)) {
-        const subOrderAmount = items.reduce(
+        let subOrderAmount = items.reduce(
           (sum, item) => sum + item.price * BigInt(item.quantity),
           BigInt(0),
         );
+
+        // For SELLER-funded coupons, deduct discount directly from the funding seller's subOrder.amount
+        if (
+          validatedCoupon &&
+          validatedCoupon.fundingType === 'SELLER' &&
+          validatedCoupon.sellerId === sellerId
+        ) {
+          subOrderAmount =
+            subOrderAmount > discountAmount
+              ? subOrderAmount - discountAmount
+              : BigInt(0);
+        }
 
         const subOrder = await tx.subOrder.create({
           data: {
