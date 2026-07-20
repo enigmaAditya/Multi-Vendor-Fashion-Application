@@ -17,6 +17,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
 import { AdminModule } from './admin/admin.module';
 
+import { HealthController } from './health/health.controller';
+
 @Module({
   imports: [
     PrismaModule,
@@ -35,7 +37,7 @@ import { AdminModule } from './admin/admin.module';
     RecommendationsModule,
     AdminModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, HealthController],
   providers: [AppService],
 })
 export class AppModule {}
