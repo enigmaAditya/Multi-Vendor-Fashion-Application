@@ -184,3 +184,21 @@
 - [x] Created `NotificationsController` with REST endpoints for FCM device token registration/deletion and user preference updates
 - [x] Wrote 7 unit tests and 4 E2E integration tests validating template XSS escaping, notification preferences, FCM dead token pruning, device token REST lifecycle, and atomic outbox fan-out dedup gate
 
+### Week 14 — Recommendations System (Phase P12 — COMPLETE)
+
+**Done:**
+
+- [x] Added `UserProductView` model to Prisma schema with composite unique index `@@unique([userId, productId])` for fire-and-forget view upserts without row proliferation
+- [x] Defined Zod validation schemas and TypeScript DTO types (`RecentlyViewedQuerySchema`, `TrendingQuerySchema`, `SimilarQuerySchema`, `AlsoBoughtQuerySchema`) in `@marketplace/types` with limit caps (max 50)
+- [x] Implemented `RecommendationsService` with 4 automated discovery engines:
+  - **Recently Viewed**: retrieves buyer browsing history filtering `product.status === 'LIVE'`, ordered by `viewedAt desc`
+  - **Trending Products**: single-pass SQL score aggregation over timeframe window ($Score = 5 \times \text{Sales} + 3 \times \text{Approved Reviews} + 1 \times \text{Views}$), filtered to `LIVE` products
+  - **Similar Products**: category matching with soft brand preference sorting (`brandId === target.brandId`), fallback ordering by `createdAt desc`
+  - **Customers Also Bought**: bounded order co-occurrence graph traversal (`OrderItem` $\rightarrow$ `Sku` $\rightarrow$ `Variant` $\rightarrow$ `Product`), falling back to category top-sellers when co-purchase data is sparse
+- [x] Created `RecommendationsController` with REST endpoints for view tracking (authenticated), recently-viewed (authenticated), trending (public), similar (public), and also-bought (public)
+- [x] Formatted uniform product cards calculating lowest SKU price (`variant.skus.price`) and aggregated live stock (`variant.skus.inventories`)
+- [x] Wrote 5 unit tests and 4 E2E integration tests validating view tracking upsert, recently-viewed ordering, SQL score aggregation, soft brand sorting, co-occurrence traversal, and category fallback
+- [x] Executed full test suite (14 unit test suites / 85 tests, 13 E2E test suites / 45 tests) with **100% PASSING GREEN**
+- [x] Executed `pnpm --filter api run lint` and `pnpm --filter api run build` with **0 errors and 0 warnings**
+
+
