@@ -201,6 +201,18 @@
 - [x] Executed full test suite (14 unit test suites / 85 tests, 13 E2E test suites / 45 tests) with **100% PASSING GREEN**
 - [x] Executed `pnpm --filter api run lint` and `pnpm --filter api run build` with **0 errors and 0 warnings**
 
+### Week 15 — Admin Panel Backend & Security Sweep (Phase P13a — COMPLETE)
+
+**Done:**
+
+- [x] Defined Zod validation schemas and TypeScript DTOs (`SellerKycApprovalSchema`, `CommissionRuleUpdateSchema`, `ProductModerationSchema`, `ReviewModerationSchema`, `FinancialReportQuerySchema`) in `@marketplace/types`
+- [x] Built `AdminService` implementing seller KYC approvals (+ `seller.approved`/`seller.rejected` outbox emissions), commission rule overrides (`CommissionRule`), product moderation (+ `product.updated` outbox emissions for search re-indexing), review moderation reuse (`ReviewsService`), and SQL ledger aggregations (`GMV`, `Commission`, `Payouts`, `PromoExpenses`)
+- [x] Created `AdminController` exposing 7 `/admin/*` REST endpoints, every single route decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` and `@Roles('ADMIN')`
+- [x] Conducted comprehensive **Security Sweep**: wrote 3 E2E security tests verifying that EVERY single `/admin/*` route returns `403 Forbidden` for BUYER and SELLER tokens and `401 Unauthorized` for unauthenticated requests
+- [x] Wrote 6 unit tests and 4 E2E integration tests validating seller KYC status transitions, commission rule creation, product moderation outbox re-indexing, and financial ledger summaries with ADMIN token
+- [x] Executed full test suite (15 unit test suites / 91 tests, 14 E2E test suites / 52 tests) with **100% PASSING GREEN**
+- [x] Executed `pnpm --filter api run lint` and `pnpm --filter api run build` with **0 errors and 0 warnings**
+
 ---
 
 ## 🏆 Backend Core Completion Summary (13 / 13 Modules Complete)
