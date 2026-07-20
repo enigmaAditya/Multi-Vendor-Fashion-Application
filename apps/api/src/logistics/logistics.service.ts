@@ -1,39 +1,58 @@
 import {
   Injectable,
+  Logger,
+  NotFoundException,
   BadRequestException,
   ForbiddenException,
-  NotFoundException,
-  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.service';
 import { PayoutsService } from '../payouts/payouts.service';
-import * as crypto from 'crypto';
 import { Prisma } from '@prisma/client';
+import * as crypto from 'crypto';
 
-interface ShiprocketAuthResponse {
-  token?: string;
-}
-
-interface ShippingAddress {
-  name?: string;
-  address?: string;
-  city?: string;
-  pincode?: string;
-  state?: string;
-  phone?: string;
+interface ShiprocketOrderPayload {
+  order_id: string;
+  order_date: string;
+  pickup_location: string;
+  billing_customer_name: string;
+  billing_last_name?: string;
+  billing_address: string;
+  billing_city: string;
+  billing_pincode: string;
+  billing_state: string;
+  billing_country: string;
+  billing_email: string;
+  billing_phone: string;
+  shipping_is_billing: boolean;
+  order_items: Array<{
+    name: string;
+    sku: string;
+    units: number;
+    selling_price: number;
+  }>;
+  payment_method: 'Prepaid' | 'COD';
+  sub_total: number;
+  length: number;
+  breadth: number;
+  height: number;
+  weight: number;
 }
 
 interface ShiprocketOrderResponse {
-  shipment_id?: string | number;
+  order_id: number;
+  shipment_id: number;
+  status: string;
+  status_code: number;
+  onboarding_completed_now: number;
   awb_code?: string;
   courier_name?: string;
 }
 
 interface ShiprocketWebhookPayload {
   awb_code?: string;
-  status?: string;
   shipment_id?: string | number;
+  status?: string;
+  courier_name?: string;
 }
 
 @Injectable()
@@ -42,190 +61,165 @@ export class LogisticsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redisService: RedisService,
     private readonly payoutsService: PayoutsService,
   ) {}
 
-  // --- Redis Locked Token Manager (Single-Flight Token Refresh) ---
-  async getShiprocketToken(): Promise<string> {
-    const redis = this.redisService.getClient();
-    const cachedToken = await redis.get('shiprocket_token');
-    if (cachedToken) {
-      return cachedToken;
-    }
-
-    const lockKey = 'shiprocket_token_lock';
-    // Acquire simple NX lock with 5 seconds expiry
-    const acquired = await redis.set(lockKey, 'locked', 'EX', 5, 'NX');
-
-    if (!acquired) {
-      // Loop retry to wait for cached token from winner
-      for (let i = 0; i < 10; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const token = await redis.get('shiprocket_token');
-        if (token) return token;
-      }
-      throw new Error('Timeout waiting for Shiprocket token refresh');
-    }
-
-    try {
-      const email = process.env.SHIPROCKET_EMAIL || 'dummy@dummy.com';
-      const password = process.env.SHIPROCKET_PASSWORD || 'dummy_password';
-
-      const response = await fetch(
-        'https://apiv2.shiprocket.in/v1/external/auth/login',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+  // --- Real-time Tracking Info ---
+  async getTrackingInfo(subOrderId: string, userId: string) {
+    const subOrder = await this.prisma.subOrder.findUnique({
+      where: { id: subOrderId },
+      include: {
+        order: { select: { buyerId: true } },
+        items: {
+          include: {
+            sku: {
+              include: {
+                variant: {
+                  include: { product: true },
+                },
+              },
+            },
+          },
         },
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Shiprocket auth endpoint failed: ${response.statusText}`,
-        );
-      }
-
-      const data = (await response.json()) as ShiprocketAuthResponse;
-      const token = data.token;
-      if (!token) {
-        throw new Error('Shiprocket response did not contain token');
-      }
-
-      // Cache token for 23 hours
-      await redis.set('shiprocket_token', token, 'EX', 23 * 60 * 60);
-      return token;
-    } finally {
-      await redis.del(lockKey);
-    }
-  }
-
-  // --- Sync Shipment to Shiprocket (Outbox Job) ---
-  async syncShipment(subOrderId: string) {
-    // 1. Atomic status claim lock to avoid double calls
-    const claim = await this.prisma.subOrder.updateMany({
-      where: {
-        id: subOrderId,
-        shipmentStatus: { in: ['PENDING_SYNC', 'FAILED_SYNC'] },
-      },
-      data: {
-        shipmentStatus: 'SYNCING',
       },
     });
 
-    if (claim.count === 0) {
-      this.logger.log(
-        `Sub-order ${subOrderId} sync skipped (already sync'd or syncing)`,
-      );
-      return {
-        success: false,
-        message: 'Sync already processed or in-flight.',
-      };
+    if (!subOrder) {
+      throw new NotFoundException('Sub-order not found.');
     }
 
-    try {
-      const subOrder = await this.prisma.subOrder.findUnique({
-        where: { id: subOrderId },
-        include: {
-          order: true,
-          items: {
-            include: {
-              sku: {
-                include: {
-                  variant: {
-                    include: {
-                      product: true,
-                    },
+    // IDOR check: Buyer of order or Seller of sub-order
+    if (subOrder.order.buyerId !== userId && subOrder.sellerId !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to view tracking for this sub-order.',
+      );
+    }
+
+    return {
+      subOrderId: subOrder.id,
+      orderId: subOrder.orderId,
+      status: subOrder.status,
+      shipmentStatus: subOrder.shipmentStatus,
+      courierName: subOrder.courierName,
+      awbCode: subOrder.awbCode,
+      shipmentId: subOrder.shipmentId,
+      items: subOrder.items.map((item) => ({
+        id: item.id,
+        skuId: item.skuId,
+        productName: item.sku.variant.product.name,
+        size: item.sku.size,
+        color: item.sku.variant.color,
+        quantity: item.quantity,
+        price: item.price.toString(),
+      })),
+    };
+  }
+
+  // --- Shiprocket Order Fulfillment Sync ---
+  async syncShipment(subOrderId: string, sellerId: string) {
+    const subOrder = await this.prisma.subOrder.findUnique({
+      where: { id: subOrderId },
+      include: {
+        order: {
+          include: {
+            buyer: true,
+          },
+        },
+        items: {
+          include: {
+            sku: {
+              include: {
+                variant: {
+                  include: {
+                    product: true,
                   },
                 },
               },
             },
           },
         },
-      });
+      },
+    });
 
-      if (!subOrder || subOrder.items.length === 0) {
-        throw new NotFoundException('Sub-order or order items not found.');
-      }
+    if (!subOrder) {
+      throw new NotFoundException('Sub-order not found.');
+    }
 
-      // Resolve warehouse pickup details (Assumes sub-order uses a single warehouse pickup location)
-      const firstItem = subOrder.items[0];
-      const reservation = await this.prisma.inventoryReservation.findFirst({
-        where: {
-          orderId: subOrder.orderId,
-          skuId: firstItem.skuId,
-          status: 'COMPLETED',
-        },
-        include: {
-          warehouse: true,
-        },
-      });
+    if (subOrder.sellerId !== sellerId) {
+      throw new ForbiddenException('You do not own this sub-order.');
+    }
 
-      if (!reservation) {
-        throw new Error(
-          'No completed inventory reservation found to resolve pickup location.',
-        );
-      }
-
-      const warehouse = reservation.warehouse;
-      const shipping = subOrder.order
-        .shippingAddress as unknown as ShippingAddress;
-
-      const customerName = shipping.name || 'Customer';
-      const address = shipping.address || 'Address';
-      const city = shipping.city || 'City';
-      const pincode = shipping.pincode || '110001';
-      const state = shipping.state || 'State';
-      const phone = shipping.phone || '+919999999999';
-
-      const orderItems = subOrder.items.map((item) => ({
-        name: item.sku.variant.product.name,
-        sku: item.sku.id,
-        units: item.quantity,
-        selling_price: Number(item.price) / 100, // stored in paise, convert to rupees
-      }));
-
-      const token = await this.getShiprocketToken();
-      const orderPayload = {
-        order_id: subOrderId,
-        order_date: new Date().toISOString().split('T')[0],
-        pickup_location: warehouse.code,
-        billing_customer_name: customerName,
-        billing_last_name: '',
-        billing_address: address,
-        billing_address_2: '',
-        billing_city: city,
-        billing_pincode: pincode,
-        billing_state: state,
-        billing_country: 'India',
-        billing_email: 'customer@test.com',
-        billing_phone: phone,
-        shipping_is_billing: true,
-        order_items: orderItems,
-        payment_method: 'Prepaid',
-        sub_total: Number(subOrder.amount) / 100,
-        length: 10,
-        width: 10,
-        height: 10,
-        weight: 0.5,
-      };
-
-      const response = await fetch(
-        'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(orderPayload),
-        },
+    if (subOrder.status !== 'CONFIRMED') {
+      throw new BadRequestException(
+        'Sub-order must be in CONFIRMED state to sync shipment.',
       );
+    }
+
+    if (
+      subOrder.shipmentStatus === 'SYNCED' ||
+      subOrder.shipmentStatus === 'IN_TRANSIT' ||
+      subOrder.shipmentStatus === 'DELIVERED'
+    ) {
+      return {
+        success: true,
+        message: 'Sub-order already synced to Shiprocket.',
+        shipmentId: subOrder.shipmentId,
+        awbCode: subOrder.awbCode,
+      };
+    }
+
+    // Prepare Shiprocket B2C Order Payload
+    const shippingAddr = subOrder.order.shippingAddress as Record<
+      string,
+      string
+    >;
+    const buyerName = subOrder.order.buyer.phone || 'Customer';
+
+    const orderItems = subOrder.items.map((item) => ({
+      name: item.sku.variant.product.name,
+      sku: item.sku.skuCode,
+      units: item.quantity,
+      selling_price: Number(item.price) / 100, // Paise to Rupees
+    }));
+
+    const payload: ShiprocketOrderPayload = {
+      order_id: subOrder.id,
+      order_date: subOrder.createdAt.toISOString().split('T')[0],
+      pickup_location: 'Primary Warehouse',
+      billing_customer_name: buyerName,
+      billing_address: shippingAddr.address || 'Address Line 1',
+      billing_city: shippingAddr.city || 'Mumbai',
+      billing_pincode: shippingAddr.pincode || '400001',
+      billing_state: shippingAddr.state || 'Maharashtra',
+      billing_country: shippingAddr.country || 'India',
+      billing_email: 'customer@marketplace.com',
+      billing_phone: subOrder.order.buyer.phone || '+919999999999',
+      shipping_is_billing: true,
+      order_items: orderItems,
+      payment_method: 'Prepaid',
+      sub_total: Number(subOrder.amount) / 100,
+      length: 10,
+      breadth: 10,
+      height: 10,
+      weight: 0.5,
+    };
+
+    try {
+      const shiprocketApiUrl =
+        process.env.SHIPROCKET_API_URL ||
+        'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc';
+      const response = await fetch(shiprocketApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.SHIPROCKET_AUTH_TOKEN || 'mock_token'}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
         throw new Error(
-          `Shiprocket API rejected order: ${response.statusText}`,
+          `Shiprocket API responded with status ${response.status}`,
         );
       }
 
@@ -236,14 +230,28 @@ export class LogisticsService {
         ? String(resData.courier_name)
         : 'Shiprocket';
 
-      await this.prisma.subOrder.update({
-        where: { id: subOrderId },
-        data: {
-          shipmentStatus: 'SYNCED',
-          shipmentId: shipmentId || null,
-          awbCode: awbCode || null,
-          courierName: courierName || null,
-        },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.subOrder.update({
+          where: { id: subOrderId },
+          data: {
+            shipmentStatus: 'SYNCED',
+            shipmentId: shipmentId || null,
+            awbCode: awbCode || null,
+            courierName: courierName || null,
+          },
+        });
+
+        await tx.outboxEvent.create({
+          data: {
+            eventType: 'shipment.dispatched',
+            payload: JSON.stringify({
+              subOrderId,
+              orderId: subOrder.orderId,
+              awbCode: awbCode || null,
+              courierName: courierName || 'Shiprocket',
+            }),
+          },
+        });
       });
 
       return { success: true, shipmentId, awbCode };
@@ -326,6 +334,15 @@ export class LogisticsService {
         if (normalizedStatus === 'DELIVERED') {
           // Reuses the processDelivery atomic guard and escrow triggers
           await this.payoutsService.processDelivery(subOrder.id, 604800, tx);
+          await tx.outboxEvent.create({
+            data: {
+              eventType: 'shipment.delivered',
+              payload: JSON.stringify({
+                subOrderId: subOrder.id,
+                orderId: subOrder.orderId,
+              }),
+            },
+          });
         } else if (
           normalizedStatus === 'RTO' ||
           normalizedStatus === 'RETURNED'
@@ -363,14 +380,15 @@ export class LogisticsService {
             });
             const productId = sku?.variant.productId;
             if (productId && !productBeforeStates.has(productId)) {
-              const skus = await tx.sku.findMany({
-                where: { variant: { productId } },
-                include: { inventories: true },
+              const count = await tx.skuInventory.aggregate({
+                where: {
+                  sku: { variant: { productId } },
+                },
+                _sum: { onHand: true, reserved: true },
               });
-              const inStock = skus.some((s) =>
-                s.inventories.some((inv) => inv.onHand - inv.reserved > 0),
-              );
-              productBeforeStates.set(productId, inStock);
+              const onHandSum = count._sum.onHand || 0;
+              const reservedSum = count._sum.reserved || 0;
+              productBeforeStates.set(productId, onHandSum - reservedSum > 0);
             }
           }
 
@@ -431,10 +449,10 @@ export class LogisticsService {
               await tx.outboxEvent.create({
                 data: {
                   eventType: 'stock.availability_changed',
-                  payload: {
+                  payload: JSON.stringify({
                     productId,
                     inStock: afterInStock,
-                  },
+                  }),
                 },
               });
             }
@@ -445,6 +463,36 @@ export class LogisticsService {
             where: { id: subOrder.id },
             data: { shipmentStatus: normalizedStatus },
           });
+
+          // Map Shiprocket real webhook status strings to outbox events
+          if (
+            normalizedStatus === 'PICKED UP' ||
+            normalizedStatus === 'PICKUP' ||
+            normalizedStatus === 'DISPATCHED' ||
+            normalizedStatus === 'IN TRANSIT'
+          ) {
+            await tx.outboxEvent.create({
+              data: {
+                eventType: 'shipment.dispatched',
+                payload: JSON.stringify({
+                  subOrderId: subOrder.id,
+                  orderId: subOrder.orderId,
+                  awbCode: subOrder.awbCode,
+                  courierName: subOrder.courierName,
+                }),
+              },
+            });
+          } else if (normalizedStatus === 'OUT FOR DELIVERY') {
+            await tx.outboxEvent.create({
+              data: {
+                eventType: 'shipment.out_for_delivery',
+                payload: JSON.stringify({
+                  subOrderId: subOrder.id,
+                  orderId: subOrder.orderId,
+                }),
+              },
+            });
+          }
         }
       });
 
