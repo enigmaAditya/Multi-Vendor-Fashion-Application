@@ -3,3 +3,4 @@ export * from "./auth";
 export * from "./catalog";
 export * from "./recommendations.schema";
 export * from "./admin.schema";
+export * from "./orders.schema";

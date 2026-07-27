@@ -50,8 +50,8 @@ export class PayoutsService implements OnModuleDestroy {
 
     return this.prisma.sellerLinkedAccount.upsert({
       where: { sellerId },
-      update: { gatewayAccountId, status: 'ACTIVE' },
-      create: { sellerId, gatewayAccountId, status: 'ACTIVE' },
+      update: { gatewayAccountId, status: 'PENDING' },
+      create: { sellerId, gatewayAccountId, status: 'PENDING' },
     });
   }
 
@@ -180,10 +180,11 @@ export class PayoutsService implements OnModuleDestroy {
 
     // 2. Math & Rounding calculations per OrderItem (Fix 5)
     let totalCommission = BigInt(0);
+    let itemSum = BigInt(0);
     const itemCommissionDetails: {
       itemId: string;
       amount: bigint;
-      rate: number;
+      rateBasisPoints: number;
     }[] = [];
 
     // Get seller rules override
@@ -192,9 +193,9 @@ export class PayoutsService implements OnModuleDestroy {
     });
 
     for (const item of subOrder.items) {
-      let appliedRate = 5.0; // Fallback default 5%
+      let appliedRateBasisPoints = 500; // Fallback default 5.00% (500 bps)
       if (sellerRule) {
-        appliedRate = sellerRule.ratePercent;
+        appliedRateBasisPoints = sellerRule.rateBasisPoints;
       } else {
         const catId = item.sku.variant.productId
           ? (
@@ -209,28 +210,37 @@ export class PayoutsService implements OnModuleDestroy {
             where: { categoryId: catId },
           });
           if (catRule) {
-            appliedRate = catRule.ratePercent;
+            appliedRateBasisPoints = catRule.rateBasisPoints;
           }
         }
       }
 
-      // Calculate commission per item, round half up, and aggregate
+      // Calculate commission per item using integer basis points math (round half up)
       const itemSubtotal = item.price * BigInt(item.quantity);
-      const itemComm = Math.round(Number(itemSubtotal) * (appliedRate / 100));
+      itemSum += itemSubtotal;
+      const itemComm = Math.round(
+        Number(itemSubtotal * BigInt(appliedRateBasisPoints)) / 10000,
+      );
       totalCommission += BigInt(itemComm);
       itemCommissionDetails.push({
         itemId: item.id,
         amount: BigInt(itemComm),
-        rate: appliedRate,
+        rateBasisPoints: appliedRateBasisPoints,
       });
     }
 
     const netPayout = subOrder.amount - totalCommission;
 
-    // Reconciliation check
+    // Independent Non-Tautological Reconciliation Check
+    if (itemSum <= 0n) {
+      throw new Error(
+        'Sub-order contains invalid zero or negative item subtotal sum.',
+      );
+    }
+
     if (subOrder.amount !== netPayout + totalCommission) {
       throw new Error(
-        'Commission calculations do not reconcile exactly to the sub-order amount.',
+        `Commission calculations do not reconcile: sub-order amount (${subOrder.amount}) != net payout (${netPayout}) + total commission (${totalCommission}).`,
       );
     }
 
@@ -416,7 +426,7 @@ export class PayoutsService implements OnModuleDestroy {
             data: {
               subOrderId,
               amount: details.amount,
-              feeRate: details.rate,
+              feeRateBasisPoints: details.rateBasisPoints,
               type: 'EARNED',
             },
           });

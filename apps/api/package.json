@@ -20,6 +20,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand --forceExit",
+    "audit:preflight": "nest build && node dist/src/common/preflight-migration-audit.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -35,6 +36,7 @@
     "@prisma/client": "^7.8.0",
     "bullmq": "^5.80.7",
     "cookie-parser": "^1.4.7",
+    "google-auth-library": "^10.9.1",
     "ioredis": "^5.11.1",
     "meilisearch": "^0.59.0",
     "nodemailer": "^9.0.3",
@@ -49,6 +51,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
+    "@marketplace/typescript-config": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",

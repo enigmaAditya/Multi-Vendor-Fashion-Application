@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -281,7 +282,16 @@ export class CouponsService {
   }
 
   // --- Update Coupon Status ---
-  async updateStatus(id: string, isActive: boolean) {
+  async updateStatus(id: string, isActive: boolean, sellerId?: string) {
+    const coupon = await this.prisma.coupon.findUnique({ where: { id } });
+    if (!coupon) {
+      throw new NotFoundException('Coupon not found.');
+    }
+    if (sellerId && coupon.sellerId !== sellerId) {
+      throw new ForbiddenException(
+        'You do not have permission to update this coupon.',
+      );
+    }
     return this.prisma.coupon.update({
       where: { id },
       data: { isActive },

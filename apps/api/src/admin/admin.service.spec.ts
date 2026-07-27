@@ -82,18 +82,18 @@ describe('AdminService', () => {
     it('should upsert CommissionRule for categoryId', async () => {
       mockPrisma.commissionRule.upsert.mockResolvedValue({
         categoryId: 'cat-1',
-        ratePercent: 8.5,
+        rateBasisPoints: 850,
       });
 
       const res = await service.setCommissionRule({
         categoryId: 'cat-1',
-        ratePercent: 8.5,
+        rateBasisPoints: 850,
       });
-      expect(res?.ratePercent).toBe(8.5);
+      expect(res?.rateBasisPoints).toBe(850);
       expect(mockPrisma.commissionRule.upsert).toHaveBeenCalledWith({
         where: { categoryId: 'cat-1' },
-        create: { categoryId: 'cat-1', ratePercent: 8.5 },
-        update: { ratePercent: 8.5 },
+        create: { categoryId: 'cat-1', rateBasisPoints: 850 },
+        update: { rateBasisPoints: 850 },
       });
     });
   });

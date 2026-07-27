@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReviewsService } from '../reviews/reviews.service';
-import { CommissionRuleUpdateDto } from '@marketplace/types';
+
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -84,32 +84,41 @@ export class AdminService {
   }
 
   // --- 3. Set Commission Rule ---
-  async setCommissionRule(dto: CommissionRuleUpdateDto) {
+  async setCommissionRule(dto: {
+    categoryId?: string;
+    sellerId?: string;
+    rateBasisPoints: number;
+  }) {
+    let rule;
     if (dto.categoryId) {
-      return this.prisma.commissionRule.upsert({
+      rule = await this.prisma.commissionRule.upsert({
         where: { categoryId: dto.categoryId },
         create: {
           categoryId: dto.categoryId,
-          ratePercent: dto.ratePercent,
+          rateBasisPoints: dto.rateBasisPoints,
         },
         update: {
-          ratePercent: dto.ratePercent,
+          rateBasisPoints: dto.rateBasisPoints,
+        },
+      });
+    } else if (dto.sellerId) {
+      rule = await this.prisma.commissionRule.upsert({
+        where: { sellerId: dto.sellerId },
+        create: {
+          sellerId: dto.sellerId,
+          rateBasisPoints: dto.rateBasisPoints,
+        },
+        update: {
+          rateBasisPoints: dto.rateBasisPoints,
         },
       });
     }
 
-    if (dto.sellerId) {
-      return this.prisma.commissionRule.upsert({
-        where: { sellerId: dto.sellerId },
-        create: {
-          sellerId: dto.sellerId,
-          ratePercent: dto.ratePercent,
-        },
-        update: {
-          ratePercent: dto.ratePercent,
-        },
-      });
-    }
+    if (!rule) return null;
+    return {
+      ...rule,
+      ratePercent: rule.rateBasisPoints / 100,
+    };
   }
 
   // --- 4. List Pending Products for Moderation ---

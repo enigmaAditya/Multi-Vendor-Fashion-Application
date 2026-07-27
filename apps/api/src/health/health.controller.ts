@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -30,8 +30,7 @@ export class HealthController {
     }
 
     const isHealthy = dbStatus === 'UP' && redisStatus === 'UP';
-
-    return {
+    const payload = {
       status: isHealthy ? 'OK' : 'DEGRADED',
       timestamp: new Date().toISOString(),
       services: {
@@ -39,5 +38,11 @@ export class HealthController {
         redis: redisStatus,
       },
     };
+
+    if (!isHealthy) {
+      throw new HttpException(payload, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    return payload;
   }
 }

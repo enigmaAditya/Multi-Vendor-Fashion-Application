@@ -56,6 +56,7 @@ describe('LogisticsService', () => {
   };
 
   beforeEach(async () => {
+    process.env.SHIPROCKET_WEBHOOK_TOKEN = 'test_webhook_token';
     moduleRef = await Test.createTestingModule({
       providers: [
         LogisticsService,

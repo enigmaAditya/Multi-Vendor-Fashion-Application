@@ -155,7 +155,29 @@ export class CatalogService {
     const categories = await this.prisma.category.findMany({
       orderBy: { path: 'asc' },
     });
-    return categories;
+
+    type CategoryWithChildren = (typeof categories)[number] & {
+      children: CategoryWithChildren[];
+    };
+
+    const categoryMap = new Map<string, CategoryWithChildren>();
+    categories.forEach((cat) => {
+      categoryMap.set(cat.id, { ...cat, children: [] });
+    });
+
+    const tree: CategoryWithChildren[] = [];
+    categories.forEach((cat) => {
+      const node = categoryMap.get(cat.id);
+      if (node) {
+        if (cat.parentId && categoryMap.has(cat.parentId)) {
+          categoryMap.get(cat.parentId)?.children.push(node);
+        } else {
+          tree.push(node);
+        }
+      }
+    });
+
+    return tree;
   }
 
   // --- Brand ---

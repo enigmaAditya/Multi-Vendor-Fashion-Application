@@ -1,5 +1,8 @@
 {
+  "extends": "@marketplace/typescript-config/base.json",
   "compilerOptions": {
+    "strictPropertyInitialization": false,
+    "noUncheckedIndexedAccess": false,
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "resolvePackageJsonExports": true,

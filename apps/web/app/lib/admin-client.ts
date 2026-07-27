@@ -1,8 +1,8 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export function formatRupees(paise: string | number | bigint): string {
-  const numericPaise = BigInt(paise || 0);
-  const rupees = Number(numericPaise) / 100;
+  const num = typeof paise === 'bigint' ? Number(paise) : Math.round(Number(paise || 0));
+  const rupees = num / 100;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',

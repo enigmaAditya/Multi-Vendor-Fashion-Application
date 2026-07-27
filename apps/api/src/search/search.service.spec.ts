@@ -59,8 +59,8 @@ describe('SearchService', () => {
     const result = await service.search({
       q: 'cotton',
       category: 'Apparel',
-      minPrice: 10,
-      maxPrice: 100,
+      minPrice: 1000,
+      maxPrice: 10000,
       sort: 'price_asc',
     });
 
@@ -116,8 +116,8 @@ describe('SearchService', () => {
         inStock: true,
         colors: ['Red'],
         sizes: ['M'],
-        minPrice: 15,
-        maxPrice: 15,
+        minPrice: 1500,
+        maxPrice: 1500,
       }),
     ]);
   });

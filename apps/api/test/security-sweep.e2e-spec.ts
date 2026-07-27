@@ -103,17 +103,17 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
 
     adminRoutes.forEach((route) => {
       it(`should return 403 Forbidden for BUYER token on ${route.method.toUpperCase()} ${route.path}`, async () => {
-        const req = (request(app.getHttpServer()) as any)[route.method](
-          route.path,
-        );
-        await req.set('Authorization', `Bearer ${buyer1Token}`).expect(403);
+        await (request(app.getHttpServer()) as any)
+          [route.method](route.path)
+          .set('Authorization', `Bearer ${buyer1Token}`)
+          .expect(403);
       });
 
       it(`should return 403 Forbidden for SELLER token on ${route.method.toUpperCase()} ${route.path}`, async () => {
-        const req = (request(app.getHttpServer()) as any)[route.method](
-          route.path,
-        );
-        await req.set('Authorization', `Bearer ${seller1Token}`).expect(403);
+        await (request(app.getHttpServer()) as any)
+          [route.method](route.path)
+          .set('Authorization', `Bearer ${seller1Token}`)
+          .expect(403);
       });
     });
   });
@@ -139,7 +139,7 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
     });
   });
 
-  describe('3. Seller Cross-Account IDOR Sweeps', () => {
+  describe('3. Seller Cross-Account IDOR & Governance Sweeps', () => {
     it('should return 403 Forbidden when Seller 2 attempts to dispatch Seller 1 sub-order', async () => {
       const orderId = crypto.randomUUID();
       const subOrderId = crypto.randomUUID();
@@ -173,9 +173,108 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
         .set('Authorization', `Bearer ${seller2Token}`)
         .expect(403);
     });
+
+    it('should return 403 Forbidden when Seller 2 attempts to submit Seller 1 product', async () => {
+      const brand = await prisma.brand.create({
+        data: {
+          name: `Brand Sweep ${crypto.randomUUID()}`,
+          slug: `brand-sweep-${crypto.randomUUID()}`,
+        },
+      });
+      const category = await prisma.category.create({
+        data: {
+          name: `Cat Sweep ${crypto.randomUUID()}`,
+          slug: `cat-sweep-${crypto.randomUUID()}`,
+          path: 'sweep',
+        },
+      });
+
+      const product = await prisma.product.create({
+        data: {
+          sellerId: seller1Id,
+          brandId: brand.id,
+          categoryId: category.id,
+          name: 'Seller 1 Secret Dress',
+          slug: `seller-1-secret-${crypto.randomUUID()}`,
+          description: 'High fashion',
+          status: 'DRAFT',
+        },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/products/${product.id}/submit`)
+        .set('Authorization', `Bearer ${seller2Token}`)
+        .expect(403);
+    });
+
+    it('should return 403 Forbidden when Seller 2 attempts to update Seller 1 coupon status', async () => {
+      const coupon = await prisma.coupon.create({
+        data: {
+          sellerId: seller1Id,
+          code: `SWEEP${crypto.randomUUID().slice(0, 5)}`,
+          discountType: 'PERCENTAGE',
+          discountValue: 10n,
+          fundingType: 'SELLER',
+          isActive: true,
+          expiresAt: new Date(Date.now() + 86400000),
+        },
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/coupons/${coupon.id}/status`)
+        .set('Authorization', `Bearer ${seller2Token}`)
+        .send({ isActive: false })
+        .expect(403);
+    });
   });
 
-  describe('4. Health Check Verification', () => {
+  describe('4. Review PII Masking Sweep', () => {
+    it('should mask buyer phone number in GET /products/:id/reviews', async () => {
+      const brand = await prisma.brand.create({
+        data: {
+          name: `Brand Rev ${crypto.randomUUID()}`,
+          slug: `brand-rev-${crypto.randomUUID()}`,
+        },
+      });
+      const category = await prisma.category.create({
+        data: {
+          name: `Cat Rev ${crypto.randomUUID()}`,
+          slug: `cat-rev-${crypto.randomUUID()}`,
+          path: 'rev',
+        },
+      });
+      const product = await prisma.product.create({
+        data: {
+          sellerId: seller1Id,
+          brandId: brand.id,
+          categoryId: category.id,
+          name: 'Reviewed Silk Scarf',
+          slug: `reviewed-scarf-${crypto.randomUUID()}`,
+          description: 'Silk scarf',
+          status: 'LIVE',
+        },
+      });
+
+      await prisma.review.create({
+        data: {
+          productId: product.id,
+          buyerId: buyer1Id,
+          rating: 5,
+          comment: 'Outstanding quality silk!',
+          status: 'APPROVED',
+        },
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`/products/${product.id}/reviews`)
+        .expect(200);
+
+      expect(res.body.reviews).toHaveLength(1);
+      expect(res.body.reviews[0].buyer.phone).toMatch(/\*{4,}/);
+    });
+  });
+
+  describe('5. Health Check Verification', () => {
     it('should return 200 OK and UP status for GET /health', async () => {
       const res = await request(app.getHttpServer()).get('/health').expect(200);
 

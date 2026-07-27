@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
+import { requireEnv } from '../common/env.helper';
 
 interface ShiprocketOrderPayload {
   order_id: string;
@@ -55,6 +56,45 @@ interface ShiprocketWebhookPayload {
   shipment_id?: string | number;
   status?: string;
   courier_name?: string;
+}
+
+import { SubOrderShipmentStatus } from '@prisma/client';
+
+export function mapShiprocketStatusToEnum(
+  rawStatus: string,
+): SubOrderShipmentStatus {
+  const statusUpper = String(rawStatus || '')
+    .toUpperCase()
+    .trim();
+  switch (statusUpper) {
+    case 'PICKED UP':
+    case 'PICKUP':
+    case 'DISPATCHED':
+    case 'SHIPPED':
+    case 'IN TRANSIT':
+    case 'OUT FOR DELIVERY':
+      return SubOrderShipmentStatus.IN_TRANSIT;
+    case 'DELIVERED':
+      return SubOrderShipmentStatus.DELIVERED;
+    case 'RTO':
+    case 'RTO IN TRANSIT':
+    case 'RTO DELIVERED':
+    case 'RETURNED':
+      return SubOrderShipmentStatus.RTO;
+    case 'CANCELED':
+    case 'CANCELLED':
+      return SubOrderShipmentStatus.CANCELLED;
+    case 'LOST':
+      return SubOrderShipmentStatus.LOST;
+    case 'SYNCING':
+      return SubOrderShipmentStatus.SYNCING;
+    case 'SYNCED':
+      return SubOrderShipmentStatus.SYNCED;
+    case 'FAILED_SYNC':
+      return SubOrderShipmentStatus.FAILED_SYNC;
+    default:
+      return SubOrderShipmentStatus.IN_TRANSIT;
+  }
 }
 
 @Injectable()
@@ -158,7 +198,6 @@ export class LogisticsService {
         size: item.sku.size,
         color: item.sku.variant.color,
         quantity: item.quantity,
-        price: item.price.toString(),
       })),
     };
   }
@@ -168,7 +207,7 @@ export class LogisticsService {
     const claim = await this.prisma.subOrder.updateMany({
       where: {
         id: subOrderId,
-        shipmentStatus: { in: ['PENDING_SYNC', 'PENDING', 'FAILED_SYNC'] },
+        shipmentStatus: { in: ['PENDING_SYNC', 'FAILED_SYNC'] },
       },
       data: {
         shipmentStatus: 'SYNCING',
@@ -210,8 +249,16 @@ export class LogisticsService {
       throw new NotFoundException('Sub-order not found.');
     }
 
+    // IDOR check: Seller must own subOrder if not admin
     if (sellerId && subOrder.sellerId !== sellerId) {
-      throw new ForbiddenException('You do not own this sub-order.');
+      // Revert status claim
+      await this.prisma.subOrder.update({
+        where: { id: subOrderId },
+        data: { shipmentStatus: 'PENDING_SYNC' },
+      });
+      throw new ForbiddenException(
+        'You do not have permission to dispatch this sub-order.',
+      );
     }
 
     if (subOrder.status && subOrder.status !== 'CONFIRMED') {
@@ -238,7 +285,10 @@ export class LogisticsService {
       string,
       string
     >;
-    const buyerName = subOrder.order?.buyer?.phone || 'Customer';
+    const buyerName: string =
+      shippingAddr.fullName || subOrder.order?.buyer?.phone || 'Customer';
+    const buyerEmail =
+      subOrder.order?.buyer?.email || 'customer@marketplace.com';
 
     const orderItems = subOrder.items.map((item) => ({
       name: item.sku.variant.product.name,
@@ -251,17 +301,23 @@ export class LogisticsService {
       ? new Date(subOrder.createdAt).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0];
 
+    const totalWeight = Math.max(
+      0.5,
+      subOrder.items.reduce((acc, i) => acc + i.quantity * 0.2, 0),
+    );
+
     const payload: ShiprocketOrderPayload = {
       order_id: subOrder.id,
       order_date: orderDate,
       pickup_location: 'Primary Warehouse',
       billing_customer_name: buyerName,
-      billing_address: shippingAddr.address || 'Address Line 1',
+      billing_address:
+        shippingAddr.street || shippingAddr.address || 'Address Line 1',
       billing_city: shippingAddr.city || 'Mumbai',
       billing_pincode: shippingAddr.pincode || '400001',
       billing_state: shippingAddr.state || 'Maharashtra',
       billing_country: shippingAddr.country || 'India',
-      billing_email: 'customer@marketplace.com',
+      billing_email: buyerEmail,
       billing_phone: subOrder.order?.buyer?.phone || '+919999999999',
       shipping_is_billing: true,
       order_items: orderItems,
@@ -270,10 +326,11 @@ export class LogisticsService {
       length: 10,
       breadth: 10,
       height: 10,
-      weight: 0.5,
+      weight: totalWeight,
     };
 
     try {
+      const shiprocketToken = await this.getShiprocketToken();
       const shiprocketApiUrl =
         process.env.SHIPROCKET_API_URL ||
         'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc';
@@ -281,7 +338,7 @@ export class LogisticsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.SHIPROCKET_AUTH_TOKEN || 'mock_token'}`,
+          Authorization: `Bearer ${shiprocketToken}`,
         },
         body: JSON.stringify(payload),
       });
@@ -342,8 +399,7 @@ export class LogisticsService {
 
   // --- Idempotent Webhook Callback Handler (Delivered/RTO paths) ---
   async handleWebhook(signature: string | undefined, payload: unknown) {
-    const expectedToken =
-      process.env.SHIPROCKET_WEBHOOK_TOKEN || 'test_webhook_token';
+    const expectedToken = requireEnv('SHIPROCKET_WEBHOOK_TOKEN');
     if (!signature) {
       throw new BadRequestException('Missing signature header.');
     }
@@ -400,7 +456,20 @@ export class LogisticsService {
           },
         });
 
-        if (normalizedStatus === 'DELIVERED') {
+        if (
+          normalizedStatus === 'DISPATCHED' ||
+          normalizedStatus === 'SHIPPED'
+        ) {
+          await tx.outboxEvent.create({
+            data: {
+              eventType: 'shipment.dispatched',
+              payload: JSON.stringify({
+                subOrderId: subOrder.id,
+                orderId: subOrder.orderId,
+              }),
+            },
+          });
+        } else if (normalizedStatus === 'DELIVERED') {
           // Reuses the processDelivery atomic guard and escrow triggers
           await this.payoutsService.processDelivery(subOrder.id, 604800, tx);
           await tx.outboxEvent.create({
@@ -530,7 +599,9 @@ export class LogisticsService {
           // Update tracking states
           await tx.subOrder.update({
             where: { id: subOrder.id },
-            data: { shipmentStatus: normalizedStatus },
+            data: {
+              shipmentStatus: mapShiprocketStatusToEnum(normalizedStatus),
+            },
           });
 
           // Map Shiprocket real webhook status strings to outbox events
