@@ -78,8 +78,82 @@ export async function runPreflightMigrationAudit() {
       values: couponFundingTypes.map((r) => r.funding_type),
     });
 
-    console.log('✅ Pre-Flight Audit Summary:');
+    const ENUM_MEMBERS: Record<string, string[]> = {
+      'products.status': [
+        'PENDING_UPLOAD',
+        'PENDING_REVIEW',
+        'DRAFT',
+        'SUBMITTED',
+        'APPROVED',
+        'REJECTED',
+        'LIVE',
+        'ARCHIVED',
+        'SUSPENDED',
+      ],
+      'sub_orders.status': [
+        'PENDING',
+        'CONFIRMED',
+        'DELIVERED',
+        'CANCELLED',
+        'COMPLETED',
+      ],
+      'sub_orders.settlementStatus': [
+        'PENDING',
+        'SETTLING',
+        'SETTLED',
+        'BLOCKED',
+        'CANCELED',
+        'FAILED_PERMANENT',
+        'CLAWBACK_REQUIRED',
+      ],
+      'sub_orders.shipmentStatus': [
+        'PENDING_SYNC',
+        'SYNCING',
+        'SYNCED',
+        'FAILED_SYNC',
+        'IN_TRANSIT',
+        'DELIVERED',
+        'RTO',
+        'CANCELLED',
+        'LOST',
+      ],
+      'coupons.discount_type': ['PERCENTAGE', 'FIXED'],
+      'coupons.funding_type': ['PLATFORM', 'SELLER'],
+    };
+
+    console.log('🔍 Pre-Flight Audit Summary:');
     console.table(report);
+
+    // Validate report values against declared enum member sets
+    const violations: string[] = [];
+    for (const r of report) {
+      const allowed = ENUM_MEMBERS[`${r.table}.${r.column}`] ?? [];
+      const invalid = r.values.filter(
+        (v) =>
+          v !== null && v !== undefined && v !== '' && !allowed.includes(v),
+      );
+      for (const inv of invalid) {
+        violations.push(
+          `${r.table}.${r.column} contains unmapped value '${inv}'`,
+        );
+      }
+    }
+
+    if (violations.length > 0) {
+      console.error(
+        '❌ Pre-Flight Audit FAIL: Found unmapped enum values in database:',
+      );
+      for (const v of violations) {
+        console.error(`  - ${v}`);
+      }
+      throw new Error(
+        `Pre-flight audit failed with ${violations.length} enum value violation(s).`,
+      );
+    }
+
+    console.log(
+      '✅ Pre-Flight Audit PASS: All database column values strictly match declared Prisma Enums.',
+    );
     return report;
   } catch (err: unknown) {
     const error = err as Error;

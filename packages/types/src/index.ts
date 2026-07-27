@@ -4,3 +4,4 @@ export * from "./catalog";
 export * from "./recommendations.schema";
 export * from "./admin.schema";
 export * from "./orders.schema";
+export * from "./outbox.types";
