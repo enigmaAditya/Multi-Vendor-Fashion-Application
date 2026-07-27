@@ -109,6 +109,7 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
       const events = await this.prisma.outboxEvent.findMany({
         where: {
           eventType: { in: supportedEventTypes },
+          processed: false,
         },
         take: 20,
         orderBy: { createdAt: 'asc' },
@@ -126,6 +127,14 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
             event.eventType,
             payload,
           );
+
+          await this.prisma.outboxEvent.update({
+            where: { id: event.id },
+            data: {
+              processed: true,
+              processedAt: new Date(),
+            },
+          });
         } catch (err: unknown) {
           const error = err as Error;
           this.logger.error(

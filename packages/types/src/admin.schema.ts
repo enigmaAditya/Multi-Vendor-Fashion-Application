@@ -10,11 +10,20 @@ export const CommissionRuleUpdateSchema = z
   .object({
     categoryId: z.string().uuid().optional(),
     sellerId: z.string().uuid().optional(),
-    ratePercent: z.number().min(0).max(100),
+    rateBasisPoints: z.number().int().min(0).max(10000).optional(),
+    ratePercent: z.number().min(0).max(100).optional(),
   })
   .refine((data) => data.categoryId || data.sellerId, {
     message: 'Either categoryId or sellerId must be provided for a commission rule.',
-  });
+  })
+  .transform((data) => ({
+    categoryId: data.categoryId,
+    sellerId: data.sellerId,
+    rateBasisPoints:
+      data.rateBasisPoints !== undefined
+        ? data.rateBasisPoints
+        : Math.round((data.ratePercent ?? 5.0) * 100),
+  }));
 
 export const ProductModerationSchema = z.object({
   productId: z.string().uuid(),

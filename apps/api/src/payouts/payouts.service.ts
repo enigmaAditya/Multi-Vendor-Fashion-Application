@@ -180,6 +180,7 @@ export class PayoutsService implements OnModuleDestroy {
 
     // 2. Math & Rounding calculations per OrderItem (Fix 5)
     let totalCommission = BigInt(0);
+    let itemSum = BigInt(0);
     const itemCommissionDetails: {
       itemId: string;
       amount: bigint;
@@ -192,9 +193,9 @@ export class PayoutsService implements OnModuleDestroy {
     });
 
     for (const item of subOrder.items) {
-      let appliedRate = 5.0; // Fallback default 5%
+      let appliedRateBasisPoints = 500; // Fallback default 5.00% (500 bps)
       if (sellerRule) {
-        appliedRate = sellerRule.ratePercent;
+        appliedRateBasisPoints = sellerRule.rateBasisPoints;
       } else {
         const catId = item.sku.variant.productId
           ? (
@@ -209,28 +210,37 @@ export class PayoutsService implements OnModuleDestroy {
             where: { categoryId: catId },
           });
           if (catRule) {
-            appliedRate = catRule.ratePercent;
+            appliedRateBasisPoints = catRule.rateBasisPoints;
           }
         }
       }
 
-      // Calculate commission per item, round half up, and aggregate
+      // Calculate commission per item using integer basis points math (round half up)
       const itemSubtotal = item.price * BigInt(item.quantity);
-      const itemComm = Math.round(Number(itemSubtotal) * (appliedRate / 100));
+      itemSum += itemSubtotal;
+      const itemComm = Math.round(
+        Number(itemSubtotal * BigInt(appliedRateBasisPoints)) / 10000,
+      );
       totalCommission += BigInt(itemComm);
       itemCommissionDetails.push({
         itemId: item.id,
         amount: BigInt(itemComm),
-        rate: appliedRate,
+        rate: appliedRateBasisPoints / 100,
       });
     }
 
     const netPayout = subOrder.amount - totalCommission;
 
-    // Reconciliation check
-    if (subOrder.amount !== netPayout + totalCommission) {
+    // Independent Non-Tautological Reconciliation Check
+    if (subOrder.amount !== itemSum) {
       throw new Error(
-        'Commission calculations do not reconcile exactly to the sub-order amount.',
+        `Sub-order total amount (${subOrder.amount}) does not equal sum of item subtotals (${itemSum}).`,
+      );
+    }
+
+    if (itemSum !== netPayout + totalCommission) {
+      throw new Error(
+        'Commission calculations do not reconcile exactly to the sub-order item sum.',
       );
     }
 

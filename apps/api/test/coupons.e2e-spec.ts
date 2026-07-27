@@ -243,7 +243,7 @@ describe('Coupons & Promotions System (e2e)', () => {
       // 1. Setup 10% commission rule for category
       const category = await prisma.category.findFirstOrThrow();
       await prisma.commissionRule.create({
-        data: { categoryId: category.id, ratePercent: 10.0 }, // 10% commission
+        data: { categoryId: category.id, rateBasisPoints: 1000 }, // 10% commission
       });
 
       // 2. Create ₹250 (25000 paise) platform coupon on ₹1,000 item. Commission is ₹100 (10000 paise).
@@ -334,7 +334,7 @@ describe('Coupons & Promotions System (e2e)', () => {
       // 1. Setup 10% commission rule for category
       const category = await prisma.category.findFirstOrThrow();
       await prisma.commissionRule.create({
-        data: { categoryId: category.id, ratePercent: 10.0 },
+        data: { categoryId: category.id, rateBasisPoints: 1000 },
       });
 
       // 2. Create SELLER-funded ₹100 (10000 paise) coupon for sellerId

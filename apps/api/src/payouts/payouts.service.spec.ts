@@ -75,11 +75,11 @@ describe('PayoutsService', () => {
       mockPrisma.sellerLinkedAccount.upsert.mockResolvedValue({
         sellerId: 'seller-1',
         gatewayAccountId: 'acc_123',
-        status: 'ACTIVE',
+        status: 'PENDING',
       });
 
       const res = await service.linkSellerAccount('seller-1', 'acc_123');
-      expect(res.status).toBe('ACTIVE');
+      expect(res.status).toBe('PENDING');
     });
 
     it('should throw NotFoundException if seller does not exist', async () => {
@@ -120,9 +120,9 @@ describe('PayoutsService', () => {
       // Seller rule is absent.
       mockPrisma.commissionRule.findUnique.mockImplementation((args: any) => {
         if (args.where.sellerId === 'seller-1') return Promise.resolve(null);
-        // Category rule: prod-1 category has 6% rate
+        // Category rule: prod-1 category has 6% rate (600 bps)
         if (args.where.categoryId === 'cat-1') {
-          return Promise.resolve({ ratePercent: 6.0 });
+          return Promise.resolve({ rateBasisPoints: 600 });
         }
         // Default 5% rate for prod-2 category (missing rule)
         return Promise.resolve(null);

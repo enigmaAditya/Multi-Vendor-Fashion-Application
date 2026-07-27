@@ -57,7 +57,11 @@ interface ShiprocketWebhookPayload {
   courier_name?: string;
 }
 
-export function mapShiprocketStatusToEnum(rawStatus: string): string {
+import { SubOrderShipmentStatus } from '@prisma/client';
+
+export function mapShiprocketStatusToEnum(
+  rawStatus: string,
+): SubOrderShipmentStatus {
   const statusUpper = String(rawStatus || '')
     .toUpperCase()
     .trim();
@@ -68,27 +72,27 @@ export function mapShiprocketStatusToEnum(rawStatus: string): string {
     case 'SHIPPED':
     case 'IN TRANSIT':
     case 'OUT FOR DELIVERY':
-      return 'IN_TRANSIT';
+      return SubOrderShipmentStatus.IN_TRANSIT;
     case 'DELIVERED':
-      return 'DELIVERED';
+      return SubOrderShipmentStatus.DELIVERED;
     case 'RTO':
     case 'RTO IN TRANSIT':
     case 'RTO DELIVERED':
     case 'RETURNED':
-      return 'RTO';
+      return SubOrderShipmentStatus.RTO;
     case 'CANCELED':
     case 'CANCELLED':
-      return 'CANCELLED';
+      return SubOrderShipmentStatus.CANCELLED;
     case 'LOST':
-      return 'LOST';
+      return SubOrderShipmentStatus.LOST;
     case 'SYNCING':
-      return 'SYNCING';
+      return SubOrderShipmentStatus.SYNCING;
     case 'SYNCED':
-      return 'SYNCED';
+      return SubOrderShipmentStatus.SYNCED;
     case 'FAILED_SYNC':
-      return 'FAILED_SYNC';
+      return SubOrderShipmentStatus.FAILED_SYNC;
     default:
-      return 'IN_TRANSIT';
+      return SubOrderShipmentStatus.IN_TRANSIT;
   }
 }
 
@@ -280,7 +284,7 @@ export class LogisticsService {
       string,
       string
     >;
-    const buyerName =
+    const buyerName: string =
       shippingAddr.fullName || subOrder.order?.buyer?.phone || 'Customer';
     const buyerEmail =
       subOrder.order?.buyer?.email || 'customer@marketplace.com';

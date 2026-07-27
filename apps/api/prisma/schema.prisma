@@ -114,12 +114,64 @@ model Brand {
   @@map("brands")
 }
 
+enum ProductStatus {
+  PENDING_UPLOAD
+  PENDING_REVIEW
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  LIVE
+  ARCHIVED
+  SUSPENDED
+}
+
+enum SubOrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+  COMPLETED
+}
+
+enum SubOrderSettlementStatus {
+  PENDING
+  SETTLING
+  SETTLED
+  BLOCKED
+  CANCELED
+  FAILED_PERMANENT
+  CLAWBACK_REQUIRED
+}
+
+enum SubOrderShipmentStatus {
+  PENDING_SYNC
+  SYNCING
+  SYNCED
+  FAILED_SYNC
+  IN_TRANSIT
+  DELIVERED
+  RTO
+  CANCELLED
+  LOST
+}
+
+enum CouponFundingType {
+  PLATFORM
+  SELLER
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
 model Product {
   id          String                  @id @default(uuid(7))
   name        String
   slug        String                  @unique
   description String?
-  status      String                  @default("DRAFT")
+  status      ProductStatus           @default(DRAFT)
   categoryId  String?
   category    Category?               @relation(fields: [categoryId], references: [id])
   brandId     String?
@@ -368,25 +420,26 @@ model Order {
 }
 
 model SubOrder {
-  id               String             @id @default(uuid(7))
+  id               String                   @id @default(uuid(7))
   orderId          String
-  order            Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order            Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sellerId         String
-  seller           User               @relation(fields: [sellerId], references: [id])
+  seller           User                     @relation(fields: [sellerId], references: [id])
   amount           BigInt
-  status           String             @default("PENDING")
+  status           SubOrderStatus           @default(PENDING)
   deliveredAt      DateTime?
-  settlementStatus String             @default("PENDING")
-  shipmentId       String?            @unique
-  awbCode          String?            @unique
+  settlementStatus SubOrderSettlementStatus @default(PENDING)
+  shipmentId       String?                  @unique
+  awbCode          String?                  @unique
   courierName      String?
-  shipmentStatus   String             @default("PENDING_SYNC")
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  shipmentStatus   SubOrderShipmentStatus   @default(PENDING_SYNC)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
   items            OrderItem[]
   payout           Payout?
   commissionLogs   CommissionLedger[]
 
+  @@index([sellerId, status])
   @@map("sub_orders")
 }
 
@@ -412,12 +465,12 @@ model PaymentWebhookLog {
 }
 
 model CommissionRule {
-  id          String   @id @default(uuid(7))
-  categoryId  String?  @unique
-  sellerId    String?  @unique
-  ratePercent Float    // e.g. 5.0 for 5%
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(uuid(7))
+  categoryId      String?  @unique
+  sellerId        String?  @unique
+  rateBasisPoints Int      // e.g. 500 = 5.00%, 1000 = 10.00%
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("commission_rules")
 }
@@ -514,9 +567,9 @@ model Coupon {
   id                    String             @id @default(uuid(7))
   code                  String             @unique
   description           String?
-  discountType          String             @map("discount_type") // PERCENTAGE or FIXED
+  discountType          DiscountType       @map("discount_type") // PERCENTAGE or FIXED
   discountValue         BigInt             @map("discount_value") // Percentage (e.g. 15 for 15%) or Fixed amount in paise (e.g. 5000 for ₹50)
-  fundingType           String             @default("PLATFORM") @map("funding_type") // PLATFORM or SELLER
+  fundingType           CouponFundingType  @default(PLATFORM) @map("funding_type") // PLATFORM or SELLER
   maxDiscountAmount     BigInt?            @map("max_discount_amount") // Max cap in paise for PERCENTAGE coupons
   minOrderAmount        BigInt             @default(0) @map("min_order_amount") // Min qualifying cart subtotal in paise
   maxRedemptions        Int?               @map("max_redemptions") // Global redemption cap (null = unlimited)

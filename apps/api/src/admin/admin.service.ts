@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReviewsService } from '../reviews/reviews.service';
-import { CommissionRuleUpdateDto } from '@marketplace/types';
+
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -84,16 +84,20 @@ export class AdminService {
   }
 
   // --- 3. Set Commission Rule ---
-  async setCommissionRule(dto: CommissionRuleUpdateDto) {
+  async setCommissionRule(dto: {
+    categoryId?: string;
+    sellerId?: string;
+    rateBasisPoints: number;
+  }) {
     if (dto.categoryId) {
       return this.prisma.commissionRule.upsert({
         where: { categoryId: dto.categoryId },
         create: {
           categoryId: dto.categoryId,
-          ratePercent: dto.ratePercent,
+          rateBasisPoints: dto.rateBasisPoints,
         },
         update: {
-          ratePercent: dto.ratePercent,
+          rateBasisPoints: dto.rateBasisPoints,
         },
       });
     }
@@ -103,10 +107,10 @@ export class AdminService {
         where: { sellerId: dto.sellerId },
         create: {
           sellerId: dto.sellerId,
-          ratePercent: dto.ratePercent,
+          rateBasisPoints: dto.rateBasisPoints,
         },
         update: {
-          ratePercent: dto.ratePercent,
+          rateBasisPoints: dto.rateBasisPoints,
         },
       });
     }
