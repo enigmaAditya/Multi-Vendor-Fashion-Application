@@ -231,7 +231,9 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       expect(subOrder.awbCode).toBe('awb-e2e-123');
 
       // Verify outbox event is marked processed
-      const outboxEvent = await prisma.outboxEvent.findFirstOrThrow();
+      const outboxEvent = await prisma.outboxEvent.findFirstOrThrow({
+        where: { eventType: 'order.paid' },
+      });
       expect(outboxEvent.processed).toBe(true);
     }, 10000); // 10s timeout
   });
