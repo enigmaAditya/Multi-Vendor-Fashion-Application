@@ -13,6 +13,8 @@ import {
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 
+import { ShippingAddressSchema } from '@marketplace/types';
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -27,11 +29,39 @@ export class OrdersService {
   async initializeCheckout(
     buyerId: string,
     cartItems: { skuId: string; quantity: number }[],
-    shippingAddress: any,
+    shippingAddressInput: any,
     couponCode?: string,
   ) {
-    if (cartItems.length === 0) {
+    if (!cartItems || cartItems.length === 0) {
       throw new BadRequestException('Cart is empty.');
+    }
+
+    for (const item of cartItems) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+        throw new BadRequestException(
+          `Invalid item quantity for SKU ${item.skuId}`,
+        );
+      }
+    }
+
+    const addressInput = (shippingAddressInput || {}) as Record<string, string>;
+    let shippingAddress: Record<string, string>;
+    try {
+      const parsed = ShippingAddressSchema.parse(addressInput);
+      shippingAddress = {
+        fullName: parsed.fullName || addressInput.name || 'Customer',
+        street:
+          parsed.street || parsed.line1 || parsed.address || 'Address Line 1',
+        city: parsed.city || 'Mumbai',
+        pincode: parsed.pincode || '400001',
+        state: parsed.state || 'Maharashtra',
+        country: parsed.country || 'India',
+        phone: parsed.phone || '',
+      };
+    } catch (err: unknown) {
+      throw new BadRequestException(
+        `Invalid shipping address: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // 1. Fetch SKUs and check product & seller status (Note 7)
