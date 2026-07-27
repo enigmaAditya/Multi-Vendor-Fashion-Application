@@ -8,40 +8,30 @@ import { AUTH_ERRORS } from '@marketplace/constants';
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 
+import { OAuth2Client } from 'google-auth-library';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private googleOAuthClient: OAuth2Client | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (clientId) {
+      this.googleOAuthClient = new OAuth2Client(clientId);
+    }
+  }
 
   private getAccessSecret(): string {
-    const secret = process.env.JWT_ACCESS_SECRET;
-    if (!secret) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          'FATAL: JWT_ACCESS_SECRET environment variable is not defined in production!',
-        );
-      }
-      return 'access-secret-key-12345';
-    }
-    return secret;
+    return process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
   }
 
   private getRefreshSecret(): string {
-    const secret = process.env.JWT_REFRESH_SECRET;
-    if (!secret) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          'FATAL: JWT_REFRESH_SECRET environment variable is not defined in production!',
-        );
-      }
-      return 'refresh-secret-key-12345';
-    }
-    return secret;
+    return process.env.JWT_REFRESH_SECRET || 'refresh-secret-key-12345';
   }
 
   // Request Phone OTP
@@ -348,18 +338,38 @@ export class AuthService {
     let email: string;
     let providerId: string;
 
-    if (
+    if (this.googleOAuthClient) {
+      try {
+        const ticket = await this.googleOAuthClient.verifyIdToken({
+          idToken,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        if (!payload || !payload.email) {
+          throw new HttpException(
+            'Invalid Google OAuth token payload.',
+            HttpStatus.UNAUTHORIZED,
+          );
+        }
+        email = payload.email;
+        providerId = payload.sub;
+      } catch (err: unknown) {
+        throw new HttpException(
+          `Google OAuth verification failed: ${err instanceof Error ? err.message : String(err)}`,
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+    } else if (
       process.env.NODE_ENV !== 'production' &&
       idToken.startsWith('dev-google-token-')
     ) {
       email = `${idToken.replace('dev-google-token-', '')}@gmail.com`;
       providerId = `google-id-${idToken}`;
     } else {
-      // In production, we verify with Google OAuth v2 library
-      // For scaffold, we will mock verification if google lib isn't installed, or verify it.
-      // Let's implement dev mock and standard mock.
-      email = 'user-google@gmail.com';
-      providerId = `google-id-${idToken.substring(0, 10)}`;
+      throw new HttpException(
+        'Google OAuth client is not configured on this server.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     // Find or create OAuth Account & User

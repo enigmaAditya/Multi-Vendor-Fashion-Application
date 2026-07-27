@@ -86,13 +86,15 @@ export class InventoryController {
     },
   ) {
     const userId = req.user.sub;
+    const requestedTtl = body.ttlSeconds ?? 900;
+    const effectiveTtl = Math.min(Math.max(requestedTtl, 60), 1800);
     return this.inventoryService.reserveStock(
       userId,
       body.skuId,
       body.warehouseId,
       body.quantity,
       body.reservationCode,
-      body.ttlSeconds,
+      effectiveTtl,
     );
   }
 

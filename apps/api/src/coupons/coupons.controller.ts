@@ -14,6 +14,13 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import type { Request } from 'express';
 
+interface RequestWithUser extends Request {
+  user: {
+    sub: string;
+    roles: string[];
+  };
+}
+
 interface CreateCouponDto {
   code: string;
   description?: string;
@@ -98,7 +105,13 @@ export class CouponsController {
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'SELLER')
-  async updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
-    return this.couponsService.updateStatus(id, dto.isActive);
+  async updateStatus(
+    @Req() req: RequestWithUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateStatusDto,
+  ) {
+    const isAdmin = req.user.roles.includes('ADMIN');
+    const sellerId = isAdmin ? undefined : req.user.sub;
+    return this.couponsService.updateStatus(id, dto.isActive, sellerId);
   }
 }

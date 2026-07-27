@@ -296,8 +296,22 @@ export class ReviewsService {
         where: { productId, status: 'APPROVED' },
       }),
     ]);
+    const sanitizedReviews = reviews.map((r) => {
+      const rawPhone = r.buyer?.phone || '';
+      const maskedPhone =
+        rawPhone.length > 5
+          ? `${rawPhone.slice(0, 4)}******${rawPhone.slice(-2)}`
+          : 'Verified Buyer';
+      return {
+        ...r,
+        buyer: {
+          id: r.buyer?.id || '',
+          phone: maskedPhone,
+        },
+      };
+    });
 
-    return { reviews, total };
+    return { reviews: sanitizedReviews, total };
   }
 
   // --- Get Product Review Stats (DB-side aggregation, APPROVED only) ---

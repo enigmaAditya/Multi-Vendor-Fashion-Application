@@ -50,8 +50,8 @@ export class PayoutsService implements OnModuleDestroy {
 
     return this.prisma.sellerLinkedAccount.upsert({
       where: { sellerId },
-      update: { gatewayAccountId, status: 'ACTIVE' },
-      create: { sellerId, gatewayAccountId, status: 'ACTIVE' },
+      update: { gatewayAccountId, status: 'PENDING' },
+      create: { sellerId, gatewayAccountId, status: 'PENDING' },
     });
   }
 
