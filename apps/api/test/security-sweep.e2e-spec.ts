@@ -259,7 +259,6 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
         data: {
           productId: product.id,
           buyerId: buyer1Id,
-          orderId: crypto.randomUUID(),
           rating: 5,
           comment: 'Outstanding quality silk!',
           status: 'APPROVED',

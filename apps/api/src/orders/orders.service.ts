@@ -14,6 +14,7 @@ import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 
 import { ShippingAddressSchema } from '@marketplace/types';
+import { requireEnv } from '../common/env.helper';
 
 @Injectable()
 export class OrdersService {
@@ -371,8 +372,7 @@ export class OrdersService {
     signature: string,
     eventId: string,
   ) {
-    const webhookSecret =
-      process.env.RAZORPAY_WEBHOOK_SECRET || 'webhooksecret';
+    const webhookSecret = requireEnv('RAZORPAY_WEBHOOK_SECRET');
 
     // 1. Timing-safe Signature verification (Note 2)
     const shasum = crypto.createHmac('sha256', webhookSecret);

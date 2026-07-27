@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
+import { requireEnv } from '../common/env.helper';
 
 interface ShiprocketOrderPayload {
   order_id: string;
@@ -398,8 +399,7 @@ export class LogisticsService {
 
   // --- Idempotent Webhook Callback Handler (Delivered/RTO paths) ---
   async handleWebhook(signature: string | undefined, payload: unknown) {
-    const expectedToken =
-      process.env.SHIPROCKET_WEBHOOK_TOKEN || 'test_webhook_token';
+    const expectedToken = requireEnv('SHIPROCKET_WEBHOOK_TOKEN');
     if (!signature) {
       throw new BadRequestException('Missing signature header.');
     }
@@ -456,7 +456,20 @@ export class LogisticsService {
           },
         });
 
-        if (normalizedStatus === 'DELIVERED') {
+        if (
+          normalizedStatus === 'DISPATCHED' ||
+          normalizedStatus === 'SHIPPED'
+        ) {
+          await tx.outboxEvent.create({
+            data: {
+              eventType: 'shipment.dispatched',
+              payload: JSON.stringify({
+                subOrderId: subOrder.id,
+                orderId: subOrder.orderId,
+              }),
+            },
+          });
+        } else if (normalizedStatus === 'DELIVERED') {
           // Reuses the processDelivery atomic guard and escrow triggers
           await this.payoutsService.processDelivery(subOrder.id, 604800, tx);
           await tx.outboxEvent.create({

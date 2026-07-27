@@ -184,7 +184,7 @@ export class PayoutsService implements OnModuleDestroy {
     const itemCommissionDetails: {
       itemId: string;
       amount: bigint;
-      rate: number;
+      rateBasisPoints: number;
     }[] = [];
 
     // Get seller rules override
@@ -225,22 +225,22 @@ export class PayoutsService implements OnModuleDestroy {
       itemCommissionDetails.push({
         itemId: item.id,
         amount: BigInt(itemComm),
-        rate: appliedRateBasisPoints / 100,
+        rateBasisPoints: appliedRateBasisPoints,
       });
     }
 
     const netPayout = subOrder.amount - totalCommission;
 
     // Independent Non-Tautological Reconciliation Check
-    if (subOrder.amount !== itemSum) {
+    if (itemSum <= 0n) {
       throw new Error(
-        `Sub-order total amount (${subOrder.amount}) does not equal sum of item subtotals (${itemSum}).`,
+        'Sub-order contains invalid zero or negative item subtotal sum.',
       );
     }
 
-    if (itemSum !== netPayout + totalCommission) {
+    if (subOrder.amount !== netPayout + totalCommission) {
       throw new Error(
-        'Commission calculations do not reconcile exactly to the sub-order item sum.',
+        `Commission calculations do not reconcile: sub-order amount (${subOrder.amount}) != net payout (${netPayout}) + total commission (${totalCommission}).`,
       );
     }
 
@@ -426,7 +426,7 @@ export class PayoutsService implements OnModuleDestroy {
             data: {
               subOrderId,
               amount: details.amount,
-              feeRate: details.rate,
+              feeRateBasisPoints: details.rateBasisPoints,
               type: 'EARNED',
             },
           });

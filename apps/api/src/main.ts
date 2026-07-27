@@ -5,12 +5,12 @@ import cookieParser from 'cookie-parser';
 import { requireEnv } from './common/env.helper';
 
 async function bootstrap() {
-  if (process.env.NODE_ENV === 'production') {
-    requireEnv('DATABASE_URL');
-    requireEnv('REDIS_URL');
-    requireEnv('JWT_ACCESS_SECRET');
-    requireEnv('JWT_REFRESH_SECRET');
-  }
+  requireEnv('DATABASE_URL');
+  requireEnv('REDIS_URL');
+  requireEnv('JWT_ACCESS_SECRET');
+  requireEnv('JWT_REFRESH_SECRET');
+  requireEnv('RAZORPAY_WEBHOOK_SECRET');
+  requireEnv('SHIPROCKET_WEBHOOK_TOKEN');
 
   (BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function (
     this: bigint,

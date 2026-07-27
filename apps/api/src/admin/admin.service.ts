@@ -89,8 +89,9 @@ export class AdminService {
     sellerId?: string;
     rateBasisPoints: number;
   }) {
+    let rule;
     if (dto.categoryId) {
-      return this.prisma.commissionRule.upsert({
+      rule = await this.prisma.commissionRule.upsert({
         where: { categoryId: dto.categoryId },
         create: {
           categoryId: dto.categoryId,
@@ -100,10 +101,8 @@ export class AdminService {
           rateBasisPoints: dto.rateBasisPoints,
         },
       });
-    }
-
-    if (dto.sellerId) {
-      return this.prisma.commissionRule.upsert({
+    } else if (dto.sellerId) {
+      rule = await this.prisma.commissionRule.upsert({
         where: { sellerId: dto.sellerId },
         create: {
           sellerId: dto.sellerId,
@@ -114,6 +113,12 @@ export class AdminService {
         },
       });
     }
+
+    if (!rule) return null;
+    return {
+      ...rule,
+      ratePercent: rule.rateBasisPoints / 100,
+    };
   }
 
   // --- 4. List Pending Products for Moderation ---

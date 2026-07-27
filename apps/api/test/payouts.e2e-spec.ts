@@ -175,6 +175,11 @@ describe('Payouts & Commission Settlements System (e2e)', () => {
       .send({ gatewayAccountId: 'acc_seller_mock123' })
       .expect(201);
 
+    await prisma.sellerLinkedAccount.update({
+      where: { sellerId },
+      data: { status: 'ACTIVE' },
+    });
+
     // 3. Simulating processDelivery Admin call
     await request(app.getHttpServer())
       .post(`/payouts/admin/sub-orders/${subOrder.id}/deliver`)

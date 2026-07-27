@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 
 import { OAuth2Client } from 'google-auth-library';
+import { requireEnv } from '../common/env.helper';
 
 @Injectable()
 export class AuthService {
@@ -27,11 +28,11 @@ export class AuthService {
   }
 
   private getAccessSecret(): string {
-    return process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
+    return requireEnv('JWT_ACCESS_SECRET');
   }
 
   private getRefreshSecret(): string {
-    return process.env.JWT_REFRESH_SECRET || 'refresh-secret-key-12345';
+    return requireEnv('JWT_REFRESH_SECRET');
   }
 
   // Request Phone OTP

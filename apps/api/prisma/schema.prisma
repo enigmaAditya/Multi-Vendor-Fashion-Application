@@ -476,12 +476,12 @@ model CommissionRule {
 }
 
 model CommissionLedger {
-  id            String   @id @default(uuid(7))
-  subOrderId    String
-  amount        BigInt   // Commission amount in paise
-  feeRate       Float    // Percentage rate applied at settlement
-  type          String   // "EARNED", "REFUNDED"
-  createdAt     DateTime @default(now())
+  id                  String   @id @default(uuid(7))
+  subOrderId          String
+  amount              BigInt   // Commission amount in paise
+  feeRateBasisPoints  Int      // Basis points rate applied at settlement (e.g. 500 = 5.00%)
+  type                String   // "EARNED", "REFUNDED"
+  createdAt           DateTime @default(now())
 
   subOrder      SubOrder @relation(fields: [subOrderId], references: [id])
 
