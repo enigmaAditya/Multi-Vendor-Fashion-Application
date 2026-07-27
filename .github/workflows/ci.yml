@@ -33,3 +33,18 @@ jobs:
         env:
           DATABASE_URL: postgres://dev:dev@localhost:5432/marketplace_test
           REDIS_URL: redis://localhost:6379
+      - run: pnpm turbo build
+      - run: pnpm --filter api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgres://dev:dev@localhost:5432/marketplace_test
+      - run: pnpm --filter api run test:e2e
+        env:
+          DATABASE_URL: postgres://dev:dev@localhost:5432/marketplace_test
+          REDIS_URL: redis://localhost:6379
+          JWT_ACCESS_SECRET: ci-test-jwt-access-secret-12345
+          JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-12345
+          RAZORPAY_WEBHOOK_SECRET: ci-test-razorpay-webhook-secret
+          SHIPROCKET_WEBHOOK_TOKEN: ci-test-shiprocket-webhook-token
+          RAZORPAY_KEY_ID: rzp_test_ci_mock_key
+          RAZORPAY_KEY_SECRET: rzp_test_ci_mock_secret
+          MEILI_MASTER_KEY: dev-master-key

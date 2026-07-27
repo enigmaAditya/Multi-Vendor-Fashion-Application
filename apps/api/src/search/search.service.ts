@@ -182,7 +182,7 @@ export class SearchService implements OnModuleInit {
     );
 
     const skuPrices = product.variants.flatMap((v) =>
-      v.skus.map((s) => Number(s.price) / 100),
+      v.skus.map((s) => Number(s.price)),
     );
     const minPrice = skuPrices.length > 0 ? Math.min(...skuPrices) : 0;
     const maxPrice = skuPrices.length > 0 ? Math.max(...skuPrices) : 0;
@@ -261,6 +261,7 @@ export class SearchService implements OnModuleInit {
     maxPrice?: number;
     inStock?: boolean;
     sort?: string;
+    page?: number;
     limit?: number;
     offset?: number;
     userId?: string;
@@ -277,29 +278,31 @@ export class SearchService implements OnModuleInit {
       maxPrice,
       inStock,
       sort,
+      page,
       limit,
       offset,
       userId,
     } = params;
 
+    const sanitize = (val: string) => val.replace(/["\\]/g, '\\$&');
     const filters: string[] = [];
     if (categoryId) {
-      filters.push(`categoryId = "${categoryId}"`);
+      filters.push(`categoryId = "${sanitize(categoryId)}"`);
     }
     if (category) {
-      filters.push(`categoryName = "${category}"`);
+      filters.push(`categoryName = "${sanitize(category)}"`);
     }
     if (brandId) {
-      filters.push(`brandId = "${brandId}"`);
+      filters.push(`brandId = "${sanitize(brandId)}"`);
     }
     if (brand) {
-      filters.push(`brandName = "${brand}"`);
+      filters.push(`brandName = "${sanitize(brand)}"`);
     }
     if (color) {
-      filters.push(`colors = "${color}"`);
+      filters.push(`colors = "${sanitize(color)}"`);
     }
     if (size) {
-      filters.push(`sizes = "${size}"`);
+      filters.push(`sizes = "${sanitize(size)}"`);
     }
     if (minPrice !== undefined && minPrice !== null) {
       filters.push(`minPrice >= ${minPrice}`);
@@ -322,12 +325,16 @@ export class SearchService implements OnModuleInit {
       sortOption = ['createdAt:desc'];
     }
 
+    const effectiveLimit = limit ?? 20;
+    const effectiveOffset =
+      offset ?? (page && page > 0 ? (page - 1) * effectiveLimit : 0);
+
     const searchOptions = {
       filter: filters.length > 0 ? filters.join(' AND ') : undefined,
       sort: sortOption,
       facets: ['categoryName', 'brandName', 'colors', 'sizes', 'inStock'],
-      limit: limit ?? 20,
-      offset: offset ?? 0,
+      limit: effectiveLimit,
+      offset: effectiveOffset,
     };
 
     const result = await this.index.search(q || '', searchOptions);

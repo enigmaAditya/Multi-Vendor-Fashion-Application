@@ -116,8 +116,8 @@ describe('SearchService', () => {
         inStock: true,
         colors: ['Red'],
         sizes: ['M'],
-        minPrice: 15,
-        maxPrice: 15,
+        minPrice: 1500,
+        maxPrice: 1500,
       }),
     ]);
   });

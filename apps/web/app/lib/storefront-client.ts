@@ -107,8 +107,10 @@ export async function fetchCategories(): Promise<CategoryNode[]> {
   if (!res.ok) {
     return [];
   }
-  const data = await res.json().catch(() => []);
-  return Array.isArray(data) ? data : [];
+  const data = await res.json().catch(() => ({}));
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.categories)) return data.categories;
+  return [];
 }
 
 // 2. Search Products (GET /search)
@@ -156,7 +158,9 @@ export async function fetchProductBySlug(slug: string): Promise<ProductDetail | 
   if (!res.ok) {
     return null;
   }
-  return res.json().catch(() => null);
+  const data = await res.json().catch(() => null);
+  if (!data) return null;
+  return data.product || data;
 }
 
 // 4. Non-Blocking Fire-and-Forget Product View Tracking (POST /recommendations/views/:productId)
