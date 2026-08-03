@@ -62,6 +62,10 @@ export class LogisticsProcessor implements OnModuleInit, OnModuleDestroy {
       );
     });
 
+    this.worker.on('error', (err) => {
+      this.logger.error(`Logistics worker error: ${err.message}`, err.stack);
+    });
+
     // Start outbox polling sweeper (runs every 5 seconds, bypassed in test mode)
     if (process.env.NODE_ENV !== 'test') {
       this.sweeperInterval = setInterval(() => {

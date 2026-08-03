@@ -225,10 +225,20 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
         app.get<LogisticsProcessor>(LogisticsProcessor);
       await logisticsProcessor.sweepOutbox();
 
-      // 4. Verify sub-order transitioned to SYNCED and has shipment info populated
-      const subOrder = await prisma.subOrder.findUniqueOrThrow({
-        where: { id: subOrderId },
-      });
+      // 4. Wait for the async worker to actually process the job
+      const waitForSync = async (id: string, timeoutMs = 10000) => {
+        const start = Date.now();
+        for (;;) {
+          const so = await prisma.subOrder.findUniqueOrThrow({ where: { id } });
+          if (so.shipmentStatus === 'SYNCED') return so;
+          if (Date.now() - start > timeoutMs) {
+            throw new Error(`Timed out; status still ${so.shipmentStatus}`);
+          }
+          await new Promise((r) => setTimeout(r, 150));
+        }
+      };
+
+      const subOrder = await waitForSync(subOrderId);
 
       expect(subOrder.shipmentStatus).toBe('SYNCED');
       expect(subOrder.shipmentId).toBe('ship-e2e-123');
