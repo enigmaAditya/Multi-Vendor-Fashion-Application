@@ -65,15 +65,17 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
     // Provide Queue instance to NotificationsService
     this.notificationsService.setQueue(this.notificationsQueue);
 
-    // Poll outbox every 5 seconds
-    this.sweeperInterval = setInterval(() => {
-      this.processOutboxNotificationEvents().catch((err: unknown) => {
-        const error = err as Error;
-        this.logger.error(
-          `Error in outbox notification sweeper: ${error.message}`,
-        );
-      });
-    }, 5000);
+    // Poll outbox every 5 seconds (bypassed in test mode)
+    if (process.env.NODE_ENV !== 'test') {
+      this.sweeperInterval = setInterval(() => {
+        this.processOutboxNotificationEvents().catch((err: unknown) => {
+          const error = err as Error;
+          this.logger.error(
+            `Error in outbox notification sweeper: ${error.message}`,
+          );
+        });
+      }, 5000);
+    }
   }
 
   async onModuleDestroy() {

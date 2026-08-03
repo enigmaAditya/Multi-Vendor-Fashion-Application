@@ -21,15 +21,17 @@ export class UnconfirmedSweeperService
   ) {}
 
   onModuleInit() {
-    // Run sweeper every hour
-    const oneHour = 60 * 60 * 1000;
-    this.intervalId = setInterval(() => {
-      void this.sweep();
-    }, oneHour);
-    // Run an initial sweep 10 seconds after boot
-    this.timeoutId = setTimeout(() => {
-      void this.sweep();
-    }, 10000);
+    // Run sweeper every hour (bypassed in test mode)
+    if (process.env.NODE_ENV !== 'test') {
+      const oneHour = 60 * 60 * 1000;
+      this.intervalId = setInterval(() => {
+        void this.sweep();
+      }, oneHour);
+      // Run an initial sweep 10 seconds after boot
+      this.timeoutId = setTimeout(() => {
+        void this.sweep();
+      }, 10000);
+    }
   }
 
   onModuleDestroy() {

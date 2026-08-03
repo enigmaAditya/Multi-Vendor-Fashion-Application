@@ -62,10 +62,12 @@ export class LogisticsProcessor implements OnModuleInit, OnModuleDestroy {
       );
     });
 
-    // Start outbox polling sweeper (runs every 5 seconds)
-    this.sweeperInterval = setInterval(() => {
-      void this.sweepOutbox();
-    }, 5000);
+    // Start outbox polling sweeper (runs every 5 seconds, bypassed in test mode)
+    if (process.env.NODE_ENV !== 'test') {
+      this.sweeperInterval = setInterval(() => {
+        void this.sweepOutbox();
+      }, 5000);
+    }
   }
 
   async onModuleDestroy() {

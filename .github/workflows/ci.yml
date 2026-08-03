@@ -31,15 +31,15 @@ jobs:
       - run: pnpm turbo lint
       - run: pnpm turbo test
         env:
-          DATABASE_URL: postgres://dev:dev@localhost:5432/marketplace_test
+          DATABASE_URL: postgresql://dev:dev@localhost:5432/marketplace_test?schema=public
           REDIS_URL: redis://localhost:6379
       - run: pnpm turbo build
       - run: pnpm --filter api exec prisma migrate deploy
         env:
-          DATABASE_URL: postgres://dev:dev@localhost:5432/marketplace_test
+          DATABASE_URL: postgresql://dev:dev@localhost:5432/marketplace_test?schema=public
       - run: pnpm --filter api run test:e2e
         env:
-          DATABASE_URL: postgres://dev:dev@localhost:5432/marketplace_test
+          DATABASE_URL: postgresql://dev:dev@localhost:5432/marketplace_test?schema=public
           REDIS_URL: redis://localhost:6379
           JWT_ACCESS_SECRET: ci-test-jwt-access-secret-12345
           JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-12345
