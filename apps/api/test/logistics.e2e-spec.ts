@@ -7,6 +7,7 @@ import { RedisService } from '../src/redis/redis.service';
 import { AppModule } from '../src/app.module';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
+import { LogisticsProcessor } from '../src/logistics/logistics.processor';
 
 describe('Logistics & Shiprocket Webhook (e2e)', () => {
   let app: INestApplication;
@@ -15,6 +16,8 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
   let jwtService: JwtService;
 
   const secret = process.env.JWT_SECRET || 'test_jwt_secret_key_123';
+  const webhookToken =
+    process.env.SHIPROCKET_WEBHOOK_TOKEN || 'test_webhook_token';
   const buyerId = crypto.randomUUID();
   const sellerId = crypto.randomUUID();
   const adminId = crypto.randomUUID();
@@ -217,9 +220,10 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
         },
       });
 
-      // 3. Wait for LogisticsProcessor sweep interval or poll manually.
-      // E2E test runs the sweeper interval of 5s. We wait 6 seconds to allow sweep to trigger and complete async sync.
-      await new Promise((resolve) => setTimeout(resolve, 6000));
+      // 3. Manually trigger LogisticsProcessor sweep
+      const logisticsProcessor =
+        app.get<LogisticsProcessor>(LogisticsProcessor);
+      await logisticsProcessor.sweepOutbox();
 
       // 4. Verify sub-order transitioned to SYNCED and has shipment info populated
       const subOrder = await prisma.subOrder.findUniqueOrThrow({
@@ -267,7 +271,7 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       // 2. Fire DELIVERED webhook for the first time
       await request(app.getHttpServer() as App)
         .post('/logistics/shiprocket-webhook')
-        .set('x-api-key', 'test_webhook_token')
+        .set('x-api-key', webhookToken)
         .send({
           awb_code: 'awb-e2e-123',
           status: 'DELIVERED',
@@ -291,7 +295,7 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       // 3. Fire duplicate DELIVERED webhook
       const duplicateRes = await request(app.getHttpServer() as App)
         .post('/logistics/shiprocket-webhook')
-        .set('x-api-key', 'test_webhook_token')
+        .set('x-api-key', webhookToken)
         .send({
           awb_code: 'awb-e2e-123',
           status: 'DELIVERED',
@@ -364,7 +368,7 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       // 2. Fire RTO Webhook
       await request(app.getHttpServer() as App)
         .post('/logistics/shiprocket-webhook')
-        .set('x-api-key', 'test_webhook_token')
+        .set('x-api-key', webhookToken)
         .send({
           awb_code: 'awb-e2e-999',
           status: 'RTO',
@@ -454,7 +458,7 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       // 2. Fire RTO Webhook
       await request(app.getHttpServer() as App)
         .post('/logistics/shiprocket-webhook')
-        .set('x-api-key', 'test_webhook_token')
+        .set('x-api-key', webhookToken)
         .send({
           awb_code: 'awb-e2e-888',
           status: 'RTO',

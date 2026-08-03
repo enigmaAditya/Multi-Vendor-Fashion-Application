@@ -82,7 +82,7 @@ export class LogisticsProcessor implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async sweepOutbox() {
+  async sweepOutbox() {
     if (this.isSweeping) return;
     this.isSweeping = true;
 
