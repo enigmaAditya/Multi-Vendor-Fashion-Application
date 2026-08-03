@@ -93,17 +93,25 @@ describe('Client Seam E2E System (e2e)', () => {
 
   beforeEach(async () => {
     // Clean up test DB tables
-    await prisma.outboxEvent.deleteMany({});
+    await prisma.shipmentWebhookLog.deleteMany({});
+    await prisma.commissionLedger.deleteMany({});
+    await prisma.payout.deleteMany({});
+    await prisma.sellerLinkedAccount.deleteMany({});
+    await prisma.commissionRule.deleteMany({});
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});
     await prisma.order.deleteMany({});
     await prisma.skuInventory.deleteMany({});
+    await prisma.inventoryLedger.deleteMany({});
+    await prisma.inventoryReservation.deleteMany({});
+    await prisma.warehouse.deleteMany({});
     await prisma.sku.deleteMany({});
     await prisma.productVariant.deleteMany({});
     await prisma.product.deleteMany({});
     await prisma.category.deleteMany({});
     await prisma.brand.deleteMany({});
     await prisma.user.deleteMany({});
+    await prisma.outboxEvent.deleteMany({});
 
     // Seed test user
     await prisma.user.create({

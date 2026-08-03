@@ -202,10 +202,29 @@ describe('Media System (e2e)', () => {
 
       expect(resConfirm.body.status).toBe('PROCESSING');
 
-      const record = await prisma.media.findUnique({
-        where: { id: newMediaId },
-      });
-      expect(['UPLOADED', 'PROCESSING', 'PROCESSED']).toContain(record?.status);
+      const waitForStatus = async (
+        id: string,
+        want: string,
+        timeoutMs = 15000,
+      ) => {
+        const start = Date.now();
+        for (;;) {
+          const rec = await prisma.media.findUnique({ where: { id } });
+          if (rec?.status === want) return rec;
+          if (rec?.status === 'FAILED') {
+            throw new Error(`Media processing failed for media ID: ${id}`);
+          }
+          if (Date.now() - start > timeoutMs) {
+            throw new Error(
+              `timed out waiting for status: ${want}; got status: ${rec?.status}`,
+            );
+          }
+          await new Promise((r) => setTimeout(r, 150));
+        }
+      };
+
+      const record = await waitForStatus(newMediaId, 'PROCESSED');
+      expect(record?.status).toBe('PROCESSED');
     });
 
     it('should reject confirmation from a different user (IDOR check)', async () => {
