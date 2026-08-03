@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -7,6 +8,7 @@ import * as net from 'net';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { IStorefrontClient, ISellerClient } from '@marketplace/types';
 
 try {
   const envContent = fs.readFileSync(
@@ -39,8 +41,8 @@ describe('Client Seam E2E System (e2e)', () => {
   let menswearId: string;
   let brandId: string;
 
-  let storefrontClient: any;
-  let sellerClient: any;
+  let storefrontClient: IStorefrontClient;
+  let sellerClient: ISellerClient;
 
   beforeAll(async () => {
     // 1. Initialize NestJS App
@@ -60,11 +62,10 @@ describe('Client Seam E2E System (e2e)', () => {
     process.env.NEXT_PUBLIC_API_URL = `http://localhost:${port}`;
     jest.resetModules();
 
-    // 3. Import clients dynamically so they pick up NEXT_PUBLIC_API_URL
-    // @ts-expect-error: Web dynamic imports bypass NodeNext path resolution
-    storefrontClient = await import('../../web/app/lib/storefront-client');
-    // @ts-expect-error: Web dynamic imports bypass NodeNext path resolution
-    sellerClient = await import('../../web/app/lib/seller-client');
+    // 3. Import clients dynamically under CommonJS require so they pick up NEXT_PUBLIC_API_URL
+    storefrontClient =
+      require('../../web/app/lib/storefront-client') as IStorefrontClient;
+    sellerClient = require('../../web/app/lib/seller-client') as ISellerClient;
 
     prisma = app.get<PrismaService>(PrismaService);
     jwtService = app.get<JwtService>(JwtService);
@@ -96,6 +97,7 @@ describe('Client Seam E2E System (e2e)', () => {
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});
     await prisma.order.deleteMany({});
+    await prisma.skuInventory.deleteMany({});
     await prisma.sku.deleteMany({});
     await prisma.productVariant.deleteMany({});
     await prisma.product.deleteMany({});
@@ -219,11 +221,13 @@ describe('Client Seam E2E System (e2e)', () => {
         global.fetch = jest.fn().mockResolvedValue({
           ok: true,
           json: jest.fn().mockResolvedValue({
-            id: 'mock-id-123',
-            name: 'Malformed Dress',
-            // Missing slug and description which are required in ProductDetailSchema
-            status: 'LIVE',
-            createdAt: new Date().toISOString(),
+            product: {
+              id: 'mock-id-123',
+              name: 'Malformed Dress',
+              // Missing slug and description which are required in ProductDetailSchema
+              status: 'LIVE',
+              createdAt: new Date().toISOString(),
+            },
           }),
         });
 

@@ -4,8 +4,18 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "setupFiles": ["<rootDir>/setup.ts"],
-  "roots": ["<rootDir>", "<rootDir>/../src", "<rootDir>/../../web/app/lib"],
+  "roots": ["<rootDir>", "<rootDir>/../../web/app/lib"],
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "module": "commonjs",
+          "moduleResolution": "node",
+          "resolvePackageJsonExports": false,
+          "isolatedModules": true
+        }
+      }
+    ]
   }
 }

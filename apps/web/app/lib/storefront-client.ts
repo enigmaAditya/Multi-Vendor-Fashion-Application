@@ -5,135 +5,32 @@ export { formatRupees };
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export interface CategoryNode {
-  id: string;
-  name: string;
-  slug: string;
-  parentId?: string | null;
-  children?: CategoryNode[];
-}
+import {
+  CategoryNode,
+  CategoryNodeSchema,
+  SkuItem,
+  SkuItemSchema,
+  ProductVariant,
+  ProductVariantSchema,
+  ProductDetail,
+  ProductDetailSchema,
+  SearchProductCard,
+} from '@marketplace/types';
 
-export const CategoryNodeSchema: z.ZodType<CategoryNode> = z.lazy(() =>
-  z.object({
-    id: z.string(),
-    name: z.string(),
-    slug: z.string(),
-    parentId: z.string().nullable().optional(),
-    children: z.array(CategoryNodeSchema).optional(),
-  }),
-);
+export type {
+  CategoryNode,
+  SkuItem,
+  ProductVariant,
+  ProductDetail,
+  SearchProductCard,
+};
 
-export const SkuItemSchema = z.object({
-  id: z.string(),
-  skuCode: z.string(),
-  price: z.union([z.string(), z.number()]).transform((val) => String(val)),
-  attributes: z.record(z.string()).optional().default({}),
-  quantity: z.number().optional(),
-});
-
-export const ProductVariantSchema = z.object({
-  id: z.string(),
-  name: z.string().optional().default('Default Variant'),
-  color: z.string().optional(),
-  size: z.string().optional(),
-  images: z
-    .array(
-      z.object({
-        url: z.string(),
-        isPrimary: z.boolean().optional(),
-      }),
-    )
-    .optional(),
-  skus: z.array(SkuItemSchema).optional(),
-});
-
-export const ProductDetailSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  slug: z.string(),
-  description: z.string(),
-  status: z.string(),
-  createdAt: z.string(),
-  category: z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      slug: z.string(),
-    })
-    .optional(),
-  brand: z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      slug: z.string(),
-    })
-    .optional(),
-  seller: z
-    .object({
-      id: z.string(),
-      phone: z.string(),
-    })
-    .optional(),
-  variants: z.array(ProductVariantSchema).optional(),
-  averageRating: z.number().optional(),
-  totalReviews: z.number().optional(),
-});
-
-export interface SkuItem {
-  id: string;
-  skuCode: string;
-  price: string;
-  attributes: Record<string, string>;
-  quantity?: number;
-}
-
-export interface ProductVariant {
-  id: string;
-  name: string;
-  color?: string;
-  size?: string;
-  images?: Array<{ url: string; isPrimary?: boolean }>;
-  skus?: SkuItem[];
-}
-
-export interface ProductDetail {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  status: string; // "LIVE"
-  createdAt: string;
-  category?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-  brand?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-  seller?: {
-    id: string;
-    phone: string;
-  };
-  variants?: ProductVariant[];
-  averageRating?: number;
-  totalReviews?: number;
-}
-
-export interface SearchProductCard {
-  id: string;
-  name: string;
-  slug: string;
-  brandName?: string;
-  categoryName?: string;
-  pricePaise: string;
-  imageUrl?: string;
-  averageRating?: number;
-  totalReviews?: number;
-  inStock?: boolean;
-}
+export {
+  CategoryNodeSchema,
+  SkuItemSchema,
+  ProductVariantSchema,
+  ProductDetailSchema,
+};
 
 export interface SearchResponse {
   items: SearchProductCard[];
