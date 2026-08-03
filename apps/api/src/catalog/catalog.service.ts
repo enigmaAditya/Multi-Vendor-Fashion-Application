@@ -237,6 +237,17 @@ export class CatalogService {
       }
     }
 
+    // Enforce MRP >= Price invariant check on all SKUs
+    for (const variant of dto.variants || []) {
+      for (const sku of variant.skus || []) {
+        if (sku.mrp < sku.price) {
+          throw new BadRequestException(
+            `Validation failed: SKU ${sku.skuCode} MRP (${sku.mrp}) cannot be less than price (${sku.price})`,
+          );
+        }
+      }
+    }
+
     // Dynamic checks
     if (dto.categoryId) {
       const category = await this.prisma.category.findUnique({
@@ -407,6 +418,17 @@ export class CatalogService {
         if (media.userId !== sellerId) {
           throw new BadRequestException(
             `You do not own the media record ${mediaId}.`,
+          );
+        }
+      }
+    }
+
+    // Enforce MRP >= Price invariant check on all SKUs
+    for (const variant of dto.variants || []) {
+      for (const sku of variant.skus || []) {
+        if (sku.mrp < sku.price) {
+          throw new BadRequestException(
+            `Validation failed: SKU ${sku.skuCode} MRP (${sku.mrp}) cannot be less than price (${sku.price})`,
           );
         }
       }

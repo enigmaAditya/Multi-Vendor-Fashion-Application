@@ -63,14 +63,31 @@ export async function fetchMyPayouts(token: string): Promise<SellerPayoutSummary
   return res.json();
 }
 
+export interface CreateProductPayload {
+  name: string;
+  description?: string;
+  categoryId?: string;
+  brandId?: string;
+  variants: Array<{
+    color: string;
+    images: Array<{
+      url: string;
+      isPrimary?: boolean;
+      mediaId?: string;
+    }>;
+    skus: Array<{
+      skuCode: string;
+      size: string;
+      price: number;
+      mrp: number;
+    }>;
+  }>;
+}
+
 // 3. Create Product Catalog Entry (POST /products)
 export async function createSellerProduct(
   token: string,
-  payload: {
-    name: string;
-    description?: string;
-    categoryId: string;
-  },
+  payload: CreateProductPayload,
 ): Promise<{ product: { id: string; name: string; slug: string; status: string } }> {
   const res = await fetch(`${API_BASE_URL}/products`, {
     method: 'POST',

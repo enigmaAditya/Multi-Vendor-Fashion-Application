@@ -41,6 +41,13 @@ export default function SellerPortalPage() {
   const [productName, setProductName] = useState('');
   const [productDesc, setProductDesc] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedBrandId, setSelectedBrandId] = useState('');
+  const [variantColor, setVariantColor] = useState('Default');
+  const [imageUrl, setImageUrl] = useState('');
+  const [skuCode, setSkuCode] = useState('');
+  const [skuSize, setSkuSize] = useState('M');
+  const [skuPrice, setSkuPrice] = useState(1499);
+  const [skuMrp, setSkuMrp] = useState(1999);
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
 
   // Form State: Inventory Replenishment
@@ -87,13 +94,39 @@ export default function SellerPortalPage() {
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sellerToken) return;
+
+    if (skuMrp < skuPrice) {
+      setAlertError('MRP must be greater than or equal to Price.');
+      return;
+    }
+
     try {
       setAlertError(null);
       setAlertSuccess(null);
       const res = await createSellerProduct(sellerToken, {
         name: productName,
-        description: productDesc,
-        categoryId: selectedCategoryId,
+        description: productDesc || undefined,
+        categoryId: selectedCategoryId || undefined,
+        brandId: selectedBrandId || undefined,
+        variants: [
+          {
+            color: variantColor || 'Default',
+            images: [
+              {
+                url: imageUrl || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500&auto=format&fit=crop',
+                isPrimary: true,
+              },
+            ],
+            skus: [
+              {
+                skuCode: skuCode || `SKU-${Date.now()}`,
+                size: skuSize || 'Free Size',
+                price: Number(skuPrice),
+                mrp: Number(skuMrp),
+              },
+            ],
+          },
+        ],
       });
       setCreatedProductId(res.product.id);
       setAlertSuccess(`✓ Product "${res.product.name}" created (ID: ${res.product.id})! Ready to submit for review.`);
@@ -275,28 +308,120 @@ export default function SellerPortalPage() {
                 <label className="form-label">Description</label>
                 <textarea
                   className="form-input"
-                  rows={3}
+                  rows={2}
                   placeholder="100% breathable organic cotton linen..."
                   value={productDesc}
                   onChange={(e) => setProductDesc(e.target.value)}
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Category</label>
-                <select
-                  className="form-input"
-                  value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
-                  required
-                >
-                  <option value="">Select category...</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name} ({cat.slug})
-                    </option>
-                  ))}
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Category</label>
+                  <select
+                    className="form-input"
+                    value={selectedCategoryId}
+                    onChange={(e) => setSelectedCategoryId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select category...</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name} ({cat.slug})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Brand ID (Optional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Paste Brand UUID..."
+                    value={selectedBrandId}
+                    onChange={(e) => setSelectedBrandId(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginTop: '16px', marginBottom: '16px' }}>
+                <h4 style={{ fontSize: '0.9375rem', fontWeight: 700, marginBottom: '12px', color: 'var(--accent-primary)' }}>Initial Variant & SKU</h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Variant Color</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Navy Blue"
+                      value={variantColor}
+                      onChange={(e) => setVariantColor(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Variant Image URL</label>
+                    <input
+                      type="url"
+                      className="form-input"
+                      placeholder="https://..."
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">SKU Code</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. LNE-NVY-M"
+                      value={skuCode}
+                      onChange={(e) => setSkuCode(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Size</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. M"
+                      value={skuSize}
+                      onChange={(e) => setSkuSize(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Selling Price (Paise/Rs)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={skuPrice}
+                      onChange={(e) => setSkuPrice(Number(e.target.value))}
+                      min={0}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">MRP (Paise/Rs)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={skuMrp}
+                      onChange={(e) => setSkuMrp(Number(e.target.value))}
+                      min={0}
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
               <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', marginTop: '12px' }}>

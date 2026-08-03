@@ -26,14 +26,14 @@ export const CategoryNodeSchema: z.ZodType<CategoryNode> = z.lazy(() =>
 export const SkuItemSchema = z.object({
   id: z.string(),
   skuCode: z.string(),
-  price: z.string(),
-  attributes: z.record(z.string()),
+  price: z.union([z.string(), z.number()]).transform((val) => String(val)),
+  attributes: z.record(z.string()).optional().default({}),
   quantity: z.number().optional(),
 });
 
 export const ProductVariantSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string().optional().default('Default Variant'),
   color: z.string().optional(),
   size: z.string().optional(),
   images: z
