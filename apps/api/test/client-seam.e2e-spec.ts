@@ -202,8 +202,14 @@ describe('Client Seam E2E System (e2e)', () => {
               images: [{ url: 'https://img.com/beige.jpg', isPrimary: true }],
               skus: [
                 {
-                  skuCode: 'TEE-ERR-M',
+                  skuCode: 'TEE-OK-M',
                   size: 'M',
+                  price: 1000,
+                  mrp: 1500, // Valid
+                },
+                {
+                  skuCode: 'TEE-ERR-L',
+                  size: 'L',
                   price: 2000,
                   mrp: 1000, // VIOLATION: MRP < Price
                 },
