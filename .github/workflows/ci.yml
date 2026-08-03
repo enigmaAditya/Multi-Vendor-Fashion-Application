@@ -21,6 +21,9 @@ jobs:
       redis:
         image: redis:7-alpine
         ports: ["6379:6379"]
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ["1025:1025", "8025:8025"]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -48,3 +51,5 @@ jobs:
           RAZORPAY_KEY_ID: rzp_test_ci_mock_key
           RAZORPAY_KEY_SECRET: rzp_test_ci_mock_secret
           MEILI_MASTER_KEY: dev-master-key
+          SMTP_HOST: localhost
+          SMTP_PORT: 1025

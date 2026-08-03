@@ -93,8 +93,11 @@ export class AuthService {
           subject: 'Your OTP Authentication Code',
           text: `Your OTP is: ${code} for phone number ${phone}. This code is valid for 5 minutes.`,
         });
-      } catch (err) {
-        this.logger.error('Failed to send dev-OTP email to Mailpit', err);
+      } catch (err: unknown) {
+        const error = err as Error;
+        this.logger.warn(
+          `Dev-OTP email dispatch to ${phone} bypassed (SMTP unavailable: ${error.message})`,
+        );
       }
     } else {
       // In production, we would call an external SMS Gateway provider
