@@ -192,7 +192,7 @@ describe('Media System (e2e)', () => {
         })
         .expect(201);
 
-      const newMediaId = resUrl.body.mediaId;
+      const newMediaId = resUrl.body.mediaId as string;
 
       const resConfirm = await request(app.getHttpServer())
         .post('/media/confirm')
@@ -237,7 +237,7 @@ describe('Media System (e2e)', () => {
         })
         .expect(201);
 
-      const targetMediaId = resUrl.body.mediaId;
+      const targetMediaId = resUrl.body.mediaId as string;
 
       await request(app.getHttpServer())
         .post('/media/confirm')
@@ -256,7 +256,7 @@ describe('Media System (e2e)', () => {
         })
         .expect(201);
 
-      const targetMediaId = resUrl.body.mediaId;
+      const targetMediaId = resUrl.body.mediaId as string;
 
       await request(app.getHttpServer())
         .get(`/media/${targetMediaId}/status`)
