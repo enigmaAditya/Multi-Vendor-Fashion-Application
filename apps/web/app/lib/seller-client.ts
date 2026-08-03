@@ -1,4 +1,7 @@
 import { API_BASE_URL } from './storefront-client';
+import { CreateProductPayload, ProductDetail } from '@marketplace/types';
+
+export type { CreateProductPayload };
 
 export interface SellerPayoutSummary {
   payouts: Array<{
@@ -63,32 +66,11 @@ export async function fetchMyPayouts(token: string): Promise<SellerPayoutSummary
   return res.json();
 }
 
-export interface CreateProductPayload {
-  name: string;
-  description?: string;
-  categoryId?: string;
-  brandId?: string;
-  variants: Array<{
-    color: string;
-    images: Array<{
-      url: string;
-      isPrimary?: boolean;
-      mediaId?: string;
-    }>;
-    skus: Array<{
-      skuCode: string;
-      size: string;
-      price: number;
-      mrp: number;
-    }>;
-  }>;
-}
-
 // 3. Create Product Catalog Entry (POST /products)
 export async function createSellerProduct(
   token: string,
   payload: CreateProductPayload,
-): Promise<{ product: { id: string; name: string; slug: string; status: string } }> {
+): Promise<{ product: ProductDetail }> {
   const res = await fetch(`${API_BASE_URL}/products`, {
     method: 'POST',
     headers: {
@@ -108,7 +90,7 @@ export async function createSellerProduct(
 export async function submitProductForReview(
   token: string,
   productId: string,
-): Promise<{ product: { id: string; status: string } }> {
+): Promise<{ product: ProductDetail }> {
   const res = await fetch(`${API_BASE_URL}/products/${encodeURIComponent(productId)}/submit`, {
     method: 'POST',
     headers: {

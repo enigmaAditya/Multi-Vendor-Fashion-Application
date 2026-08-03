@@ -234,12 +234,39 @@ export interface SearchProductCard {
   inStock?: boolean;
 }
 
+export interface CreateProductPayload {
+  name: string;
+  description?: string;
+  categoryId?: string;
+  brandId?: string;
+  variants: Array<{
+    color: string;
+    images: Array<{
+      url: string;
+      isPrimary?: boolean;
+      mediaId?: string;
+    }>;
+    skus: Array<{
+      skuCode: string;
+      size: string;
+      price: number;
+      mrp: number;
+    }>;
+  }>;
+}
+
 export interface IStorefrontClient {
   fetchCategories(): Promise<CategoryNode[]>;
   fetchProductBySlug(slug: string): Promise<ProductDetail | null>;
 }
 
 export interface ISellerClient {
-  createSellerProduct(token: string, payload: any): Promise<{ product: any }>;
-  submitProductForReview(token: string, productId: string): Promise<{ product: any }>;
+  createSellerProduct(
+    token: string,
+    payload: CreateProductPayload,
+  ): Promise<{ product: ProductDetail }>;
+  submitProductForReview(
+    token: string,
+    productId: string,
+  ): Promise<{ product: ProductDetail }>;
 }
