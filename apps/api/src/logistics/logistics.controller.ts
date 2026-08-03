@@ -30,7 +30,7 @@ export class LogisticsController {
   async handleWebhook(
     @Headers('x-api-key') apiKeyHeader: string | undefined,
     @Headers('authorization') authHeader: string | undefined,
-    @Body() payload: any,
+    @Body() payload: Record<string, unknown>,
   ) {
     const signature = apiKeyHeader || authHeader;
     return this.logisticsService.handleWebhook(signature, payload);

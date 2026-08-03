@@ -15,6 +15,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Request } from 'express';
 
+import { ShippingAddress } from '@marketplace/types';
+
 interface RequestWithUser extends Request {
   user: {
     sub: string;
@@ -35,7 +37,7 @@ export class OrdersController {
     @Body()
     body: {
       cartItems: { skuId: string; quantity: number }[];
-      shippingAddress: any;
+      shippingAddress: ShippingAddress;
       couponCode?: string;
     },
   ) {

@@ -106,7 +106,7 @@ export class AuthController {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Clear cookie on failure
       res.clearCookie('refreshToken');
       throw err;

@@ -256,7 +256,7 @@ export class PayoutsService implements OnModuleDestroy {
             idempotencyKey,
           },
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Unique constraint violation race (handled)
         payout = await this.prisma.payout.findUnique({
           where: { subOrderId },

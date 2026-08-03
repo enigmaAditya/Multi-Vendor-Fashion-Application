@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { formatRupees } from './admin-client';
 
 export { formatRupees };
@@ -11,6 +12,72 @@ export interface CategoryNode {
   parentId?: string | null;
   children?: CategoryNode[];
 }
+
+export const CategoryNodeSchema: z.ZodType<CategoryNode> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    parentId: z.string().nullable().optional(),
+    children: z.array(CategoryNodeSchema).optional(),
+  }),
+);
+
+export const SkuItemSchema = z.object({
+  id: z.string(),
+  skuCode: z.string(),
+  price: z.string(),
+  attributes: z.record(z.string()),
+  quantity: z.number().optional(),
+});
+
+export const ProductVariantSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string().optional(),
+  size: z.string().optional(),
+  images: z
+    .array(
+      z.object({
+        url: z.string(),
+        isPrimary: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  skus: z.array(SkuItemSchema).optional(),
+});
+
+export const ProductDetailSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  description: z.string(),
+  status: z.string(),
+  createdAt: z.string(),
+  category: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+    })
+    .optional(),
+  brand: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+    })
+    .optional(),
+  seller: z
+    .object({
+      id: z.string(),
+      phone: z.string(),
+    })
+    .optional(),
+  variants: z.array(ProductVariantSchema).optional(),
+  averageRating: z.number().optional(),
+  totalReviews: z.number().optional(),
+});
 
 export interface SkuItem {
   id: string;
@@ -108,9 +175,12 @@ export async function fetchCategories(): Promise<CategoryNode[]> {
     return [];
   }
   const data = await res.json().catch(() => ({}));
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.categories)) return data.categories;
-  return [];
+  const categories = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.categories)
+      ? data.categories
+      : [];
+  return z.array(CategoryNodeSchema).parse(categories);
 }
 
 // 2. Search Products (GET /search)
@@ -160,7 +230,8 @@ export async function fetchProductBySlug(slug: string): Promise<ProductDetail | 
   }
   const data = await res.json().catch(() => null);
   if (!data) return null;
-  return data.product || data;
+  const product = data.product || data;
+  return ProductDetailSchema.parse(product);
 }
 
 // 4. Non-Blocking Fire-and-Forget Product View Tracking (POST /recommendations/views/:productId)

@@ -30,7 +30,7 @@ export class OrdersService {
   async initializeCheckout(
     buyerId: string,
     cartItems: { skuId: string; quantity: number }[],
-    shippingAddressInput: any,
+    shippingAddressInput: unknown,
     couponCode?: string,
   ) {
     if (!cartItems || cartItems.length === 0) {
