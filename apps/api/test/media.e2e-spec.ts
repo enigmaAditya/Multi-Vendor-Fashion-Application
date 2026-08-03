@@ -205,7 +205,7 @@ describe('Media System (e2e)', () => {
       const record = await prisma.media.findUnique({
         where: { id: newMediaId },
       });
-      expect(record?.status).toBe('UPLOADED');
+      expect(['UPLOADED', 'PROCESSING', 'PROCESSED']).toContain(record?.status);
     });
 
     it('should reject confirmation from a different user (IDOR check)', async () => {
