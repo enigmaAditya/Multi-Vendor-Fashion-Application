@@ -151,6 +151,78 @@ describe('Search & Discovery System (e2e)', () => {
         'categoryName = "Apparel"',
       );
     });
+
+    it('should filter by categoryId and resolve descendant categories from DB fallback', async () => {
+      const seller = await prisma.user.create({
+        data: {
+          id: crypto.randomUUID(),
+          email: 'cat-seller@test.com',
+          phone: '+919999888800',
+          roles: ['SELLER'],
+        },
+      });
+      const parentCat = await prisma.category.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: 'Apparel',
+          slug: 'apparel-parent',
+          path: '/apparel',
+        },
+      });
+      const childCat = await prisma.category.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: 'T-Shirts',
+          slug: 'tshirts-child',
+          parentId: parentCat.id,
+          path: '/apparel/tshirts',
+        },
+      });
+      const otherCat = await prisma.category.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: 'Electronics',
+          slug: 'electronics-other',
+          path: '/electronics',
+        },
+      });
+
+      const prodTshirt = await prisma.product.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: 'Graphic Tee',
+          slug: 'graphic-tee',
+          status: 'LIVE',
+          categoryId: childCat.id,
+          sellerId: seller.id,
+        },
+      });
+      await prisma.product.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: 'Headphones',
+          slug: 'headphones',
+          status: 'LIVE',
+          categoryId: otherCat.id,
+          sellerId: seller.id,
+        },
+      });
+
+      (
+        searchService as unknown as { index: { search: jest.Mock } }
+      ).index.search = jest
+        .fn()
+        .mockResolvedValue({ hits: [], estimatedTotalHits: 0 });
+
+      const response = await request(app.getHttpServer())
+        .get('/search')
+        .query({ categoryId: parentCat.id })
+        .expect(200);
+
+      expect(response.body.hits).toHaveLength(1);
+      expect(response.body.hits[0].id).toBe(prodTshirt.id);
+      expect(response.body.hits[0].name).toBe('Graphic Tee');
+    });
   });
 
   describe('POST /search/reindex', () => {

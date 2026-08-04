@@ -9,7 +9,9 @@ import { JwtService } from '@nestjs/jwt';
 interface SearchQuery {
   q?: string;
   category?: string;
+  categoryId?: string;
   brand?: string;
+  brandId?: string;
   color?: string;
   size?: string;
   minPrice?: string;
@@ -48,7 +50,9 @@ export class SearchController {
 
     return await this.searchService.search({
       q: query.q,
+      categoryId: query.categoryId,
       category: query.category,
+      brandId: query.brandId,
       brand: query.brand,
       color: query.color,
       size: query.size,

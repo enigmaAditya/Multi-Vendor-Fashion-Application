@@ -102,7 +102,13 @@ export async function fetchProductsFromDb(params: {
     return { items: [], total: 0, page: params.page ?? 1, limit: params.limit ?? 20 };
   }
   const raw = await res.json().catch(() => ({}));
-  const rawItems = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+  const rawItems = Array.isArray(raw?.products)
+    ? raw.products
+    : Array.isArray(raw?.items)
+      ? raw.items
+      : Array.isArray(raw)
+        ? raw
+        : [];
 
   const items = rawItems.map((p: {
     id: string;
