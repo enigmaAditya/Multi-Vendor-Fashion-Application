@@ -191,13 +191,16 @@ export class AdminService {
     const [gmvResult, commissionResult, payoutsResult, promoResult] =
       await Promise.all([
         this.prisma.$queryRaw<Array<{ total: bigint }>>`
-          SELECT COALESCE(SUM(amount), 0)::bigint as total FROM sub_orders;
+          SELECT COALESCE(SUM(so.amount), 0)::bigint as total 
+          FROM sub_orders so 
+          JOIN orders o ON so.order_id = o.id 
+          WHERE o.payment_status = 'PAID';
         `,
         this.prisma.$queryRaw<Array<{ total: bigint }>>`
           SELECT COALESCE(SUM(amount), 0)::bigint as total FROM commission_ledger;
         `,
         this.prisma.$queryRaw<Array<{ total: bigint }>>`
-          SELECT COALESCE(SUM(amount), 0)::bigint as total FROM payouts WHERE status = 'SETTLED';
+          SELECT COALESCE(SUM(amount), 0)::bigint as total FROM payouts WHERE status = 'SUCCESS';
         `,
         this.prisma.$queryRaw<Array<{ total: bigint }>>`
           SELECT COALESCE(SUM(amount), 0)::bigint as total FROM promotion_ledger WHERE type = 'PLATFORM_PROMO_EXPENSE';

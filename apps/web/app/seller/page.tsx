@@ -76,7 +76,7 @@ export default function SellerPortalPage() {
   }, []);
 
   useEffect(() => {
-    const token = sessionStorage.getItem('luxe_seller_token');
+    const token = sessionStorage.getItem('luxe_seller_token') || localStorage.getItem('luxe_seller_token');
     if (token) {
       setSellerToken(token);
       loadSellerData(token);

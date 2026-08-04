@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useState, useEffect } from 'react';
-import { ProductDetail, SkuItem, formatRupees, trackProductView } from '../../../lib/storefront-client';
+import { ProductDetail, SkuItem, formatRupees, trackProductView, fetchProductReviews, ReviewItem } from '../../../lib/storefront-client';
 import { useCart } from '../../../lib/cart-context';
 import { ReviewFormModal } from '../../../components/storefront/ReviewFormModal';
 
@@ -17,13 +17,15 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [addedNotice, setAddedNotice] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewsList, setReviewsList] = useState<ReviewItem[]>([]);
 
   const { addToCart } = useCart();
 
-  // Fire-and-forget view tracking on mount
+  // Fire-and-forget view tracking on mount & fetch customer reviews
   useEffect(() => {
     if (product.id) {
       trackProductView(product.id);
+      fetchProductReviews(product.id).then(setReviewsList).catch(() => {});
     }
   }, [product.id]);
 
@@ -32,7 +34,7 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
   ];
 
   const currentPricePaise = selectedSku?.price || primaryVariant?.skus?.[0]?.price || '0';
-  const currentQuantity = selectedSku?.quantity !== undefined ? selectedSku.quantity : 10;
+  const currentQuantity = selectedSku?.quantity !== undefined ? selectedSku.quantity : 0;
 
   const handleAddToCart = () => {
     if (!selectedSku) return;
@@ -198,6 +200,38 @@ export function PDPClientComponent({ product }: PDPClientComponentProps) {
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             {product.description || 'No description provided for this product.'}
           </p>
+        </div>
+
+        {/* Customer Reviews Section */}
+        <div style={{ marginTop: '32px', borderTop: '1px solid var(--border-subtle)', paddingTop: '24px' }}>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px' }}>
+            Customer Reviews ({reviewsList.length})
+          </h4>
+          {reviewsList.length === 0 ? (
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+              No reviews written yet. Be the first to leave a review!
+            </p>
+          ) : (
+            <div style={{ display: 'grid', gap: '12px' }}>
+              {reviewsList.map((rev) => (
+                <div key={rev.id} style={{ padding: '12px 16px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                      {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {rev.user?.name || rev.user?.phone || 'Verified Buyer'}
+                    </span>
+                  </div>
+                  {rev.comment && (
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
+                      {rev.comment}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

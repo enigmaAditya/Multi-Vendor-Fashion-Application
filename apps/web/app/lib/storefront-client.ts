@@ -423,3 +423,18 @@ export async function createReview(
   }
   return res.json();
 }
+
+export interface ReviewItem {
+  id: string;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+  user?: { name?: string | null; phone?: string | null };
+}
+
+export async function fetchProductReviews(productId: string): Promise<ReviewItem[]> {
+  const res = await fetch(`${API_BASE_URL}/reviews/product/${encodeURIComponent(productId)}`, { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data : Array.isArray(data?.reviews) ? data.reviews : [];
+}

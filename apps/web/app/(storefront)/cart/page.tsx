@@ -20,6 +20,11 @@ export default function CartPage() {
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const router = useRouter();
 
+  React.useEffect(() => {
+    const storedToken = sessionStorage.getItem('luxe_buyer_token') || localStorage.getItem('luxe_buyer_token');
+    if (storedToken) setBuyerToken(storedToken);
+  }, []);
+
   const discountPaise = validatedCoupon ? BigInt(validatedCoupon.discountAmount) : 0n;
   const estimatedTotalPaise = subtotalPaise > discountPaise ? subtotalPaise - discountPaise : 0n;
 
