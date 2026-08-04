@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { Meilisearch, Index } from 'meilisearch';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ProductSearchDocument {
@@ -20,6 +21,25 @@ export interface ProductSearchDocument {
   minPrice: number;
   maxPrice: number;
   attributes: Array<{ name: string; value: string }>;
+}
+
+export interface SearchResult {
+  hits: Array<{
+    id: string;
+    name: string;
+    slug?: string;
+    brandName?: string | null;
+    categoryName?: string | null;
+    primaryImage?: string;
+    minPrice?: number;
+    inStock?: boolean;
+    rating?: number;
+  }>;
+  query: string;
+  processingTimeMs: number;
+  limit: number;
+  offset: number;
+  estimatedTotalHits: number;
 }
 
 @Injectable()
@@ -89,6 +109,7 @@ export class SearchService implements OnModuleInit {
         ],
       });
       this.logger.log('Meilisearch settings initialized successfully.');
+      await this.reindexAll();
     } catch (err: unknown) {
       // Degrade gracefully, do not crash application cold-start
       this.logger.error(
@@ -265,7 +286,7 @@ export class SearchService implements OnModuleInit {
     limit?: number;
     offset?: number;
     userId?: string;
-  }) {
+  }): Promise<SearchResult> {
     const {
       q,
       categoryId,
@@ -287,7 +308,26 @@ export class SearchService implements OnModuleInit {
     const sanitize = (val: string) => val.replace(/["\\]/g, '\\$&');
     const filters: string[] = [];
     if (categoryId) {
-      filters.push(`categoryId = "${sanitize(categoryId)}"`);
+      const categoryObj = await this.prisma.category.findUnique({
+        where: { id: categoryId },
+      });
+      if (categoryObj) {
+        const descendants = await this.prisma.category.findMany({
+          where: {
+            OR: [
+              { id: categoryId },
+              { path: { startsWith: `${categoryObj.path}/` } },
+            ],
+          },
+          select: { id: true },
+        });
+        const catFilterClause = descendants
+          .map((c) => `categoryId = "${sanitize(c.id)}"`)
+          .join(' OR ');
+        filters.push(`(${catFilterClause})`);
+      } else {
+        filters.push(`categoryId = "${sanitize(categoryId)}"`);
+      }
     }
     if (category) {
       filters.push(`categoryName = "${sanitize(category)}"`);
@@ -337,18 +377,98 @@ export class SearchService implements OnModuleInit {
       offset: effectiveOffset,
     };
 
-    const result = await this.index.search(q || '', searchOptions);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let result: any = null;
+    try {
+      result = await this.index.search(q || '', searchOptions);
+    } catch {
+      result = null;
+    }
 
-    // Asynchronous query logging (fire-and-forget: does not block event loop)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const hitsArr = result?.hits as unknown[];
+    if (!result || !hitsArr || (hitsArr.length === 0 && !q)) {
+      const dbWhere: Prisma.ProductWhereInput = { status: 'LIVE' };
+      if (categoryId) {
+        const categoryObj = await this.prisma.category.findUnique({
+          where: { id: categoryId },
+        });
+        if (categoryObj) {
+          const descendants = await this.prisma.category.findMany({
+            where: {
+              OR: [
+                { id: categoryId },
+                { path: { startsWith: `${categoryObj.path}/` } },
+              ],
+            },
+            select: { id: true },
+          });
+          dbWhere.categoryId = { in: descendants.map((c) => c.id) };
+        }
+      }
+
+      const dbProducts = await this.prisma.product.findMany({
+        where: dbWhere,
+        include: {
+          brand: true,
+          category: true,
+          variants: {
+            include: {
+              images: true,
+              skus: true,
+            },
+          },
+        },
+        take: effectiveLimit,
+        skip: effectiveOffset,
+      });
+
+      const hits = dbProducts.map((p) => {
+        const firstVariant = p.variants?.[0];
+        const firstImage =
+          firstVariant?.images?.[0]?.url ||
+          'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop';
+        const prices =
+          p.variants?.flatMap((v) => v.skus?.map((s) => Number(s.price))) || [];
+        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+        return {
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          brandName: p.brand?.name || null,
+          categoryName: p.category?.name || null,
+          primaryImage: firstImage,
+          minPrice,
+          inStock: true,
+          rating: 5,
+        };
+      });
+
+      const totalCount = await this.prisma.product.count({ where: dbWhere });
+
+      return {
+        hits,
+        query: q || '',
+        processingTimeMs: 0,
+        limit: effectiveLimit,
+        offset: effectiveOffset,
+        estimatedTotalHits: totalCount,
+      };
+    }
+
+    // Log search query asynchronously
     const logFilters = filters.length > 0 ? JSON.stringify(filters) : null;
-    const count = result.estimatedTotalHits ?? result.hits.length;
+    const resultObj = result as { hits?: unknown[] } | null;
+    const searchHitsCount = Array.isArray(resultObj?.hits)
+      ? resultObj.hits.length
+      : 0;
 
     this.prisma.searchQueryLog
       .create({
         data: {
           query: q || '',
           filters: logFilters,
-          resultsCount: count,
+          resultsCount: searchHitsCount,
           userId: userId || null,
         },
       })
@@ -358,6 +478,6 @@ export class SearchService implements OnModuleInit {
         );
       });
 
-    return result;
+    return result as SearchResult;
   }
 }

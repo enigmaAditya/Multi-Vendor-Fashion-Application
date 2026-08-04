@@ -60,14 +60,37 @@ export default async function ProductListingPage({ searchParams }: PLPPageProps)
                 </Link>
               </li>
               {categories.map((cat) => (
-                <li key={cat.id}>
-                  <Link
-                    href={`/products?categoryId=${cat.id}`}
-                    style={{ color: categoryId === cat.id ? 'var(--accent-primary)' : 'var(--text-secondary)', fontWeight: categoryId === cat.id ? 700 : 400 }}
-                  >
-                    {cat.name}
-                  </Link>
-                </li>
+                <div key={cat.id} style={{ display: 'grid', gap: '6px' }}>
+                  <li key={cat.id}>
+                    <Link
+                      href={`/products?categoryId=${cat.id}`}
+                      style={{
+                        color: categoryId === cat.id ? 'var(--accent-primary)' : 'var(--text-primary)',
+                        fontWeight: categoryId === cat.id ? 700 : 600,
+                      }}
+                    >
+                      {cat.name}
+                    </Link>
+                  </li>
+                  {cat.children && cat.children.length > 0 && (
+                    <ul style={{ listStyle: 'none', paddingLeft: '12px', display: 'grid', gap: '6px' }}>
+                      {cat.children.map((sub) => (
+                        <li key={sub.id}>
+                          <Link
+                            href={`/products?categoryId=${sub.id}`}
+                            style={{
+                              color: categoryId === sub.id ? 'var(--accent-primary)' : 'var(--text-muted)',
+                              fontWeight: categoryId === sub.id ? 700 : 400,
+                              fontSize: '0.8125rem',
+                            }}
+                          >
+                            • {sub.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               ))}
             </ul>
           </aside>

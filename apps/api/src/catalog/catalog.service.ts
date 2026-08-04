@@ -985,7 +985,6 @@ export class CatalogService {
       createdAt: 'desc',
     }; // Default is NEWEST
     if (query.sort === 'PRICE_ASC' || query.sort === 'PRICE_DESC') {
-      // Retiring raw-SQL price-sort branch in favor of Meilisearch search service routing
       const meiliResult = await this.searchService.search({
         categoryId: query.categoryId,
         brandId: query.brandId,
@@ -996,7 +995,7 @@ export class CatalogService {
         offset: skip,
       });
 
-      const ids = meiliResult.hits.map((h) => (h as { id: string }).id);
+      const ids = meiliResult.hits.map((h) => h.id);
       if (ids.length === 0) {
         return {
           products: [],
@@ -1032,7 +1031,7 @@ export class CatalogService {
       // Maintain order returned by Meilisearch
       const sortedProducts = ids
         .map((id) => products.find((p) => p.id === id))
-        .filter((p): p is NonNullable<typeof p> => !!p);
+        .filter((p): p is (typeof products)[number] => !!p);
 
       const total = meiliResult.estimatedTotalHits ?? meiliResult.hits.length;
 

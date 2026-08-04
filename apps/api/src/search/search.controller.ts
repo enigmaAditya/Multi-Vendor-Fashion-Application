@@ -28,7 +28,10 @@ export class SearchController {
   ) {}
 
   @Get()
-  async search(@Req() req: Request, @Query() query: SearchQuery) {
+  async search(
+    @Req() req: Request,
+    @Query() query: SearchQuery,
+  ): Promise<unknown> {
     const authHeader = req.headers.authorization;
     let userId: string | undefined = undefined;
 
@@ -43,7 +46,7 @@ export class SearchController {
       }
     }
 
-    return this.searchService.search({
+    return await this.searchService.search({
       q: query.q,
       category: query.category,
       brand: query.brand,

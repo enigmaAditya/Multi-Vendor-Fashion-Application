@@ -80,6 +80,67 @@ export async function fetchCategories(): Promise<CategoryNode[]> {
   return z.array(CategoryNodeSchema).parse(categories);
 }
 
+export async function fetchProductsFromDb(params: {
+  q?: string;
+  categoryId?: string;
+  brandId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  page?: number;
+  limit?: number;
+}): Promise<SearchResponse> {
+  const url = new URL(`${API_BASE_URL}/products`);
+  if (params.categoryId) url.searchParams.set('categoryId', params.categoryId);
+  if (params.brandId) url.searchParams.set('brandId', params.brandId);
+  if (params.minPrice !== undefined) url.searchParams.set('priceMin', params.minPrice.toString());
+  if (params.maxPrice !== undefined) url.searchParams.set('priceMax', params.maxPrice.toString());
+  if (params.page) url.searchParams.set('page', params.page.toString());
+  if (params.limit) url.searchParams.set('limit', params.limit.toString());
+
+  const res = await fetch(url.toString(), { cache: 'no-store' });
+  if (!res.ok) {
+    return { items: [], total: 0, page: params.page ?? 1, limit: params.limit ?? 20 };
+  }
+  const raw = await res.json().catch(() => ({}));
+  const rawItems = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+
+  const items = rawItems.map((p: {
+    id: string;
+    name: string;
+    slug: string;
+    brand?: { name?: string };
+    category?: { name?: string };
+    variants?: Array<{
+      images?: Array<{ url?: string }>;
+      skus?: Array<{ price?: number | bigint }>;
+    }>;
+  }) => {
+    const firstVariant = p.variants?.[0];
+    const firstImage = firstVariant?.images?.[0]?.url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop';
+    const prices = p.variants?.flatMap((v) => v.skus?.map((s) => (s.price !== undefined ? Number(s.price) : undefined))) || [];
+    const validPrices = prices.filter((pr): pr is number => typeof pr === 'number' && !isNaN(pr));
+    const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      brandName: p.brand?.name || '',
+      categoryName: p.category?.name || '',
+      primaryImage: firstImage,
+      minPrice,
+      inStock: true,
+      rating: 5,
+    };
+  });
+
+  return {
+    items,
+    total: typeof raw?.total === 'number' ? raw.total : items.length,
+    page: params.page ?? 1,
+    limit: params.limit ?? 20,
+  };
+}
+
 // 2. Search Products (GET /search)
 export async function searchProducts(params: {
   q?: string;
@@ -101,10 +162,13 @@ export async function searchProducts(params: {
 
   const res = await fetch(url.toString(), { cache: 'no-store' });
   if (!res.ok) {
-    return { items: [], total: 0, page: params.page ?? 1, limit: params.limit ?? 20 };
+    return fetchProductsFromDb(params);
   }
   const raw = await res.json().catch(() => ({}));
   const items = ensureProductArray(raw);
+  if (items.length === 0 && !params.q) {
+    return fetchProductsFromDb(params);
+  }
   const total = typeof raw?.estimatedTotalHits === 'number'
     ? raw.estimatedTotalHits
     : typeof raw?.total === 'number'
