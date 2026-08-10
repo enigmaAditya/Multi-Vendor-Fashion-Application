@@ -1,8 +1,7 @@
-process.env.DISABLE_WORKERS = 'false';
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { uuidv7 } from 'uuidv7';
+import { flushRedis } from './utils/flush-redis';
 
 try {
   const envContent = fs.readFileSync(
@@ -76,6 +75,8 @@ describe('Media System (e2e)', () => {
   };
 
   beforeAll(async () => {
+    process.env.DISABLE_WORKERS = 'false';
+    await flushRedis();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -145,6 +146,7 @@ describe('Media System (e2e)', () => {
     await prisma.media.deleteMany({});
     await prisma.user.deleteMany({});
     await prisma.$disconnect();
+    process.env.DISABLE_WORKERS = 'true';
     await app.close();
   });
 

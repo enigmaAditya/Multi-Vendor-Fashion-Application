@@ -1,9 +1,8 @@
-process.env.DISABLE_WORKERS = 'false';
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { flushRedis } from './utils/flush-redis';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RedisService } from '../src/redis/redis.service';
 import { AppModule } from '../src/app.module';
@@ -31,6 +30,8 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
   let adminToken: string;
 
   beforeAll(async () => {
+    process.env.DISABLE_WORKERS = 'false';
+    await flushRedis();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -555,5 +556,10 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
         .set('Authorization', `Bearer ${seller2Token}`)
         .expect(403);
     });
+  });
+
+  afterAll(async () => {
+    process.env.DISABLE_WORKERS = 'true';
+    await app.close();
   });
 });
