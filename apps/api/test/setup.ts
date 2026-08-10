@@ -10,7 +10,9 @@
 // This intercept swallows only that specific harmless error.  Everything else
 // passes through to Jest's default handler unchanged.
 // ---------------------------------------------------------------------------
-const _originalEmit = process.emit.bind(process);
+const _originalEmit = (
+  process.emit as (...emitArgs: unknown[]) => boolean
+).bind(process);
 // @ts-expect-error -- monkey-patching process.emit for test resilience
 process.emit = function (event: string, ...args: unknown[]) {
   if (event === 'uncaughtException') {
@@ -19,7 +21,7 @@ process.emit = function (event: string, ...args: unknown[]) {
       return true; // swallow — harmless BullMQ teardown noise
     }
   }
-  return _originalEmit(event, ...args);
+  return _originalEmit.call(process, event, ...args);
 };
 
 process.env.DATABASE_URL =
