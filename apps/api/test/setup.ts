@@ -1,3 +1,27 @@
+// ---------------------------------------------------------------------------
+// Suppress BullMQ "Connection is closed" errors during test teardown.
+//
+// Root cause: BullMQ's RedisConnection removes its own error listeners during
+// Queue/Worker.close(), but ioredis fires a socket 'close' event *after* that.
+// RedisConnection re-emits it as an 'error' with no remaining listeners, which
+// Node escalates to 'uncaughtException'.  Jest catches that and fails the suite
+// even though every individual test passed.
+//
+// This intercept swallows only that specific harmless error.  Everything else
+// passes through to Jest's default handler unchanged.
+// ---------------------------------------------------------------------------
+const _originalEmit = process.emit.bind(process);
+// @ts-expect-error -- monkey-patching process.emit for test resilience
+process.emit = function (event: string, ...args: unknown[]) {
+  if (event === 'uncaughtException') {
+    const err = args[0] as Error | undefined;
+    if (err?.message === 'Connection is closed.') {
+      return true; // swallow — harmless BullMQ teardown noise
+    }
+  }
+  return _originalEmit(event, ...args);
+};
+
 process.env.DATABASE_URL =
   process.env.DATABASE_URL ||
   'postgresql://dev:dev@localhost:5432/marketplace?schema=public';
