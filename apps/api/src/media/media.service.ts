@@ -40,6 +40,9 @@ export class MediaService implements OnModuleDestroy {
     }
 
     this.mediaQueue = new Queue('media-processing', { connection });
+    this.mediaQueue.on('error', (err) => {
+      this.logger.error(`Media queue error: ${err.message}`, err.stack);
+    });
   }
 
   async onModuleDestroy() {

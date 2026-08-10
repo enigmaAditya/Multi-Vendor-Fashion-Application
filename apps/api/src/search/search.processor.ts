@@ -55,11 +55,19 @@ export class SearchProcessor implements OnModuleInit, OnModuleDestroy {
       { connection, concurrency: 2 },
     );
 
+    this.searchQueue.on('error', (err) => {
+      this.logger.error(`Search queue error: ${err.message}`, err.stack);
+    });
+
     this.worker.on('failed', (job, err) => {
       this.logger.error(
         `Search index sync job ${job?.id} failed with error: ${err.message}`,
         err.stack,
       );
+    });
+
+    this.worker.on('error', (err) => {
+      this.logger.error(`Search worker error: ${err.message}`, err.stack);
     });
 
     // Start outbox polling sweeper (runs every 5 seconds, bypassed in test mode)

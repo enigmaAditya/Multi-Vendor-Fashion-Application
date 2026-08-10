@@ -68,6 +68,10 @@ export class InventoryProcessor implements OnModuleInit, OnModuleDestroy {
         err.stack,
       );
     });
+
+    this.worker.on('error', (err) => {
+      this.logger.error(`Inventory worker error: ${err.message}`, err.stack);
+    });
   }
 
   async onModuleDestroy() {

@@ -35,6 +35,9 @@ export class PayoutsService implements OnModuleDestroy {
     }
 
     this.payoutsQueue = new Queue('payouts-processing', { connection });
+    this.payoutsQueue.on('error', (err) => {
+      this.logger.error(`Payouts queue error: ${err.message}`, err.stack);
+    });
   }
 
   async onModuleDestroy() {

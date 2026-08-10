@@ -56,9 +56,20 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
       { connection },
     );
 
+    this.notificationsQueue.on('error', (err) => {
+      this.logger.error(`Notifications queue error: ${err.message}`, err.stack);
+    });
+
     this.worker.on('failed', (job, err) => {
       this.logger.error(
         `Notification job ${job?.id} failed with error: ${err.message}`,
+      );
+    });
+
+    this.worker.on('error', (err) => {
+      this.logger.error(
+        `Notifications worker error: ${err.message}`,
+        err.stack,
       );
     });
 

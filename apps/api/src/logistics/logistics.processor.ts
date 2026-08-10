@@ -55,6 +55,10 @@ export class LogisticsProcessor implements OnModuleInit, OnModuleDestroy {
       { connection, concurrency: 2 },
     );
 
+    this.logisticsQueue.on('error', (err) => {
+      this.logger.error(`Logistics queue error: ${err.message}`, err.stack);
+    });
+
     this.worker.on('failed', (job, err) => {
       this.logger.error(
         `Logistics sync job ${job?.id} failed with error: ${err.message}`,
