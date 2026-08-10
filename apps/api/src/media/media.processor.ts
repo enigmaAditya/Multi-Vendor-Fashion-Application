@@ -54,6 +54,10 @@ export class MediaProcessor implements OnModuleInit, OnModuleDestroy {
         err.stack,
       );
     });
+
+    this.worker.on('error', (err) => {
+      this.logger.error(`Media worker error: ${err.message}`, err.stack);
+    });
   }
 
   async onModuleDestroy() {
