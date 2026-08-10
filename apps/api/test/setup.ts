@@ -2,6 +2,7 @@ process.env.DATABASE_URL =
   process.env.DATABASE_URL ||
   'postgresql://dev:dev@localhost:5432/marketplace?schema=public';
 process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+process.env.DISABLE_WORKERS = process.env.DISABLE_WORKERS || 'true';
 process.env.JWT_ACCESS_SECRET =
   process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
 process.env.JWT_REFRESH_SECRET =

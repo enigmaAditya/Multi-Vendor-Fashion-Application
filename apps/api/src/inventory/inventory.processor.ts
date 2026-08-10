@@ -34,6 +34,13 @@ export class InventoryProcessor implements OnModuleInit, OnModuleDestroy {
       };
     }
 
+    if (process.env.DISABLE_WORKERS === 'true') {
+      this.logger.log(
+        'Workers disabled in test mode; skipping inventory worker startup.',
+      );
+      return;
+    }
+
     this.worker = new Worker(
       'inventory-processing',
       async (job: Job) => {

@@ -43,6 +43,14 @@ export class SearchProcessor implements OnModuleInit, OnModuleDestroy {
 
     // Initialize BullMQ Queue and Worker for Search Indexing
     this.searchQueue = new Queue('search-processing', { connection });
+
+    if (process.env.DISABLE_WORKERS === 'true') {
+      this.logger.log(
+        'Workers disabled in test mode; skipping search worker startup.',
+      );
+      return;
+    }
+
     this.worker = new Worker(
       'search-processing',
       async (job: Job) => {

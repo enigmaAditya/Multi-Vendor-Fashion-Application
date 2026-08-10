@@ -28,6 +28,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthService } from '../src/auth/auth.service';
+import { flushRedis } from './utils/flush-redis';
 
 describe('Admin Panel & Security Sweep (e2e)', () => {
   let app: INestApplication<App>;
@@ -46,6 +47,7 @@ describe('Admin Panel & Security Sweep (e2e)', () => {
   let productId: string;
 
   beforeEach(async () => {
+    await flushRedis();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

@@ -27,11 +27,13 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { flushRedis } from './utils/flush-redis';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
+    await flushRedis();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

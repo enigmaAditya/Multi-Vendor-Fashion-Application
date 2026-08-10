@@ -45,6 +45,14 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
     }
 
     this.notificationsQueue = new Queue('notifications-queue', { connection });
+
+    if (process.env.DISABLE_WORKERS === 'true') {
+      this.logger.log(
+        'Workers disabled in test mode; skipping notifications worker startup.',
+      );
+      return;
+    }
+
     this.worker = new Worker(
       'notifications-queue',
       async (job: Job<NotificationJobData>) => {

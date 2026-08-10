@@ -43,6 +43,14 @@ export class LogisticsProcessor implements OnModuleInit, OnModuleDestroy {
 
     // Initialize BullMQ Queue and Worker
     this.logisticsQueue = new Queue('logistics-processing', { connection });
+
+    if (process.env.DISABLE_WORKERS === 'true') {
+      this.logger.log(
+        'Workers disabled in test mode; skipping logistics worker startup.',
+      );
+      return;
+    }
+
     this.worker = new Worker(
       'logistics-processing',
       async (job: Job) => {

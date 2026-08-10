@@ -39,6 +39,13 @@ export class MediaProcessor implements OnModuleInit, OnModuleDestroy {
       };
     }
 
+    if (process.env.DISABLE_WORKERS === 'true') {
+      this.logger.log(
+        'Workers disabled in test mode; skipping media worker startup.',
+      );
+      return;
+    }
+
     this.worker = new Worker(
       'media-processing',
       async (job: Job) => {

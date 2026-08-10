@@ -1,3 +1,5 @@
+process.env.DISABLE_WORKERS = 'false';
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { uuidv7 } from 'uuidv7';

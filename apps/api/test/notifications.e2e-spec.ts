@@ -30,6 +30,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthService } from '../src/auth/auth.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
 import { NotificationsProcessor } from '../src/notifications/notifications.processor';
+import { flushRedis } from './utils/flush-redis';
 
 describe('Notifications System (e2e)', () => {
   let app: INestApplication<App>;
@@ -43,6 +44,7 @@ describe('Notifications System (e2e)', () => {
   let sellerId: string;
 
   beforeEach(async () => {
+    await flushRedis();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

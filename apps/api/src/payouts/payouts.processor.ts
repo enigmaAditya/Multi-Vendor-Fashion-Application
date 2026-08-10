@@ -34,6 +34,13 @@ export class PayoutsProcessor implements OnModuleInit, OnModuleDestroy {
       };
     }
 
+    if (process.env.DISABLE_WORKERS === 'true') {
+      this.logger.log(
+        'Workers disabled in test mode; skipping payouts worker startup.',
+      );
+      return;
+    }
+
     this.worker = new Worker(
       'payouts-processing',
       async (job: Job) => {
