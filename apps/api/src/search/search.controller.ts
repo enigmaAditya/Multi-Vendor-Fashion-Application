@@ -18,6 +18,7 @@ interface SearchQuery {
   maxPrice?: string;
   inStock?: string;
   sort?: string;
+  page?: string;
   limit?: string;
   offset?: string;
 }
@@ -65,6 +66,7 @@ export class SearchController {
             ? false
             : undefined,
       sort: query.sort,
+      page: query.page ? Number(query.page) : undefined,
       limit: query.limit ? Number(query.limit) : undefined,
       offset: query.offset ? Number(query.offset) : undefined,
       userId,
