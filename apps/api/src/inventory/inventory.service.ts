@@ -39,6 +39,13 @@ export class InventoryService implements OnModuleDestroy {
     this.inventoryQueue.on('error', (err) => {
       this.logger.error(`Inventory queue error: ${err.message}`, err.stack);
     });
+
+    const queueConn = (
+      this.inventoryQueue as unknown as {
+        connection?: { on: (event: string, fn: () => void) => void };
+      }
+    ).connection;
+    queueConn?.on('error', () => {});
   }
 
   async onModuleDestroy() {

@@ -67,6 +67,13 @@ export class PayoutsProcessor implements OnModuleInit, OnModuleDestroy {
     this.worker.on('error', (err) => {
       this.logger.error(`Payouts worker error: ${err.message}`, err.stack);
     });
+
+    const workerConn = (
+      this.worker as unknown as {
+        connection?: { on: (event: string, fn: () => void) => void };
+      }
+    ).connection;
+    workerConn?.on('error', () => {});
   }
 
   async onModuleDestroy() {

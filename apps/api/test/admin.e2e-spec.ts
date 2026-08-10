@@ -127,7 +127,7 @@ describe('Admin Panel & Security Sweep (e2e)', () => {
     productId = p.id;
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 

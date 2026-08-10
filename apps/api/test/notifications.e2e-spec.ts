@@ -78,6 +78,7 @@ describe('Notifications System (e2e)', () => {
     await prisma.productImage.deleteMany();
     await prisma.productVariant.deleteMany();
     await prisma.product.deleteMany();
+    await prisma.sellerLinkedAccount.deleteMany();
     await prisma.user.deleteMany();
 
     // 1. Create Buyer user and generate token
@@ -100,7 +101,7 @@ describe('Notifications System (e2e)', () => {
     });
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 

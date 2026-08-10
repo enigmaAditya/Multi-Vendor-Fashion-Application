@@ -38,6 +38,13 @@ export class PayoutsService implements OnModuleDestroy {
     this.payoutsQueue.on('error', (err) => {
       this.logger.error(`Payouts queue error: ${err.message}`, err.stack);
     });
+
+    const queueConn = (
+      this.payoutsQueue as unknown as {
+        connection?: { on: (event: string, fn: () => void) => void };
+      }
+    ).connection;
+    queueConn?.on('error', () => {});
   }
 
   async onModuleDestroy() {

@@ -171,7 +171,7 @@ describe('Recommendations System (e2e)', () => {
     product2Id = p2.id;
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 

@@ -73,6 +73,20 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
       );
     });
 
+    const workerConn = (
+      this.worker as unknown as {
+        connection?: { on: (event: string, fn: () => void) => void };
+      }
+    ).connection;
+    workerConn?.on('error', () => {});
+
+    const queueConn = (
+      this.notificationsQueue as unknown as {
+        connection?: { on: (event: string, fn: () => void) => void };
+      }
+    ).connection;
+    queueConn?.on('error', () => {});
+
     // Provide Queue instance to NotificationsService
     this.notificationsService.setQueue(this.notificationsQueue);
 

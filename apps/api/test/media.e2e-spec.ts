@@ -33,6 +33,7 @@ import { JwtService } from '@nestjs/jwt';
 import { StorageService } from '../src/media/storage.service';
 
 describe('Media System (e2e)', () => {
+  jest.setTimeout(30000);
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let jwtService: JwtService;

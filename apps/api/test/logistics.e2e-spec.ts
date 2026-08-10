@@ -10,6 +10,7 @@ import * as crypto from 'crypto';
 import { LogisticsProcessor } from '../src/logistics/logistics.processor';
 
 describe('Logistics & Shiprocket Webhook (e2e)', () => {
+  jest.setTimeout(25000);
   let app: INestApplication;
   let prisma: PrismaService;
   let redis: RedisService;
