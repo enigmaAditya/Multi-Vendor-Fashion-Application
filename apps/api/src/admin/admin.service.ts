@@ -193,8 +193,8 @@ export class AdminService {
         this.prisma.$queryRaw<Array<{ total: bigint }>>`
           SELECT COALESCE(SUM(so.amount), 0)::bigint as total 
           FROM sub_orders so 
-          JOIN orders o ON so.order_id = o.id 
-          WHERE o.payment_status = 'PAID';
+          JOIN orders o ON so."orderId" = o.id 
+          WHERE o."paymentStatus" = 'PAID';
         `,
         this.prisma.$queryRaw<Array<{ total: bigint }>>`
           SELECT COALESCE(SUM(amount), 0)::bigint as total FROM commission_ledger;
