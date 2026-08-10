@@ -75,17 +75,31 @@ export class NotificationsProcessor implements OnModuleInit, OnModuleDestroy {
 
     const workerConn = (
       this.worker as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    workerConn?.on('error', () => {});
+    workerConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Notifications worker connection event: ${err.message}`,
+        err.stack,
+      );
+    });
 
     const queueConn = (
       this.notificationsQueue as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    queueConn?.on('error', () => {});
+    queueConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Notifications queue connection event: ${err.message}`,
+        err.stack,
+      );
+    });
 
     // Provide Queue instance to NotificationsService
     this.notificationsService.setQueue(this.notificationsQueue);

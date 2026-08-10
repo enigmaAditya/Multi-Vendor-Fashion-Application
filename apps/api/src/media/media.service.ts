@@ -46,10 +46,17 @@ export class MediaService implements OnModuleDestroy {
 
     const queueConn = (
       this.mediaQueue as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    queueConn?.on('error', () => {});
+    queueConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Media queue connection event: ${err.message}`,
+        err.stack,
+      );
+    });
   }
 
   async onModuleDestroy() {

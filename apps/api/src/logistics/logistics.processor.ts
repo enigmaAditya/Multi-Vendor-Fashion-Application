@@ -72,17 +72,31 @@ export class LogisticsProcessor implements OnModuleInit, OnModuleDestroy {
 
     const workerConn = (
       this.worker as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    workerConn?.on('error', () => {});
+    workerConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Logistics worker connection event: ${err.message}`,
+        err.stack,
+      );
+    });
 
     const queueConn = (
       this.logisticsQueue as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    queueConn?.on('error', () => {});
+    queueConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Logistics queue connection event: ${err.message}`,
+        err.stack,
+      );
+    });
 
     // Start outbox polling sweeper (runs every 5 seconds, bypassed in test mode)
     if (process.env.NODE_ENV !== 'test') {

@@ -42,10 +42,17 @@ export class InventoryService implements OnModuleDestroy {
 
     const queueConn = (
       this.inventoryQueue as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    queueConn?.on('error', () => {});
+    queueConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Inventory queue connection event: ${err.message}`,
+        err.stack,
+      );
+    });
   }
 
   async onModuleDestroy() {

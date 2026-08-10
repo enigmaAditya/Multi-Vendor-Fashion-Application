@@ -72,17 +72,31 @@ export class SearchProcessor implements OnModuleInit, OnModuleDestroy {
 
     const workerConn = (
       this.worker as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    workerConn?.on('error', () => {});
+    workerConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Search worker connection event: ${err.message}`,
+        err.stack,
+      );
+    });
 
     const queueConn = (
       this.searchQueue as unknown as {
-        connection?: { on: (event: string, fn: () => void) => void };
+        connection?: {
+          on: (event: string, fn: (err: Error) => void) => void;
+        };
       }
     ).connection;
-    queueConn?.on('error', () => {});
+    queueConn?.on('error', (err: Error) => {
+      this.logger.warn(
+        `Search queue connection event: ${err.message}`,
+        err.stack,
+      );
+    });
 
     // Start outbox polling sweeper (runs every 5 seconds, bypassed in test mode)
     if (process.env.NODE_ENV !== 'test') {
