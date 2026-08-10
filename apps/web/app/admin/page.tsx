@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   fetchFinancialSummary,
   fetchSellers,
@@ -23,6 +24,13 @@ export default function AdminDashboardPage() {
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [successAlert, setSuccessAlert] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('luxe_admin_token') || localStorage.getItem('luxe_admin_token');
+    if (token) {
+      setAdminToken(token);
+    }
+  }, []);
 
   // Financial State
   const [finance, setFinance] = useState<FinancialSummaryResponse | null>(null);
@@ -214,46 +222,50 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        {/* Token Setter */}
+        {/* Token Status Badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <input
-            type="password"
-            className="form-input"
-            placeholder="Paste Admin JWT Token..."
-            value={adminToken}
-            onChange={(e) => setAdminToken(e.target.value)}
-            style={{ width: '280px', padding: '8px 12px' }}
-          />
           <span className={`badge ${adminToken ? 'badge-success' : 'badge-warning'}`}>
-            {adminToken ? 'Authenticated' : 'Token Required'}
+            {adminToken ? '✓ Admin Authenticated' : '🔒 Admin Session Required'}
           </span>
         </div>
       </header>
 
-      {/* Global Alerts */}
-      {errorAlert && (
-        <div className="alert alert-danger">
-          <span>{errorAlert}</span>
-          <button
-            onClick={() => setErrorAlert(null)}
-            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
-          >
-            ✕
-          </button>
+      {!adminToken ? (
+        <div className="glass-panel" style={{ padding: '48px 24px', textAlign: 'center', margin: '32px 0' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px' }}>Admin Session Required</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '480px', margin: '0 auto 24px' }}>
+            Please log in with Admin privileges to access operator controls, seller KYC approvals, catalog moderation, and financial summaries.
+          </p>
+          <Link href="/login" className="btn btn-primary">
+            Log In as Admin →
+          </Link>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Global Alerts */}
+          {errorAlert && (
+            <div className="alert alert-danger">
+              <span>{errorAlert}</span>
+              <button
+                onClick={() => setErrorAlert(null)}
+                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
-      {successAlert && (
-        <div className="alert alert-success">
-          <span>{successAlert}</span>
-          <button
-            onClick={() => setSuccessAlert(null)}
-            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
+          {successAlert && (
+            <div className="alert alert-success">
+              <span>{successAlert}</span>
+              <button
+                onClick={() => setSuccessAlert(null)}
+                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
       {/* Navigation Tabs */}
       <nav
@@ -644,6 +656,8 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </main>
+        </>
+      )}
     </div>
   );
 }

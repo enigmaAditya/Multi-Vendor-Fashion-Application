@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { fetchOrderById, formatRupees } from '../../../lib/storefront-client';
 import { useCart } from '../../../lib/cart-context';
 
@@ -16,6 +16,7 @@ interface FetchedOrder {
 
 function OrderConfirmationContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const orderId = searchParams.get('orderId');
   const [buyerToken, setBuyerToken] = useState<string>('');
   const [order, setOrder] = useState<FetchedOrder | null>(null);
@@ -43,11 +44,13 @@ function OrderConfirmationContent() {
   }, [orderId, buyerToken, clearCart]);
 
   useEffect(() => {
-    const token = sessionStorage.getItem('luxe_buyer_token');
+    const token = sessionStorage.getItem('luxe_buyer_token') || localStorage.getItem('luxe_buyer_token');
     if (token) {
       setBuyerToken(token);
+    } else {
+      router.push('/login');
     }
-  }, []);
+  }, [router]);
 
   // Webhook-Is-Truth Status Polling loop every 2 seconds
   useEffect(() => {
@@ -74,20 +77,7 @@ function OrderConfirmationContent() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '48px 24px', minHeight: '80vh' }}>
-      {!buyerToken ? (
-        <div className="glass-panel" style={{ padding: '32px', textAlign: 'center' }}>
-          <h3>Enter Buyer JWT Token to inspect Order Status</h3>
-          <input
-            type="password"
-            className="form-input"
-            placeholder="Paste Buyer JWT Token..."
-            value={buyerToken}
-            onChange={(e) => setBuyerToken(e.target.value)}
-            style={{ maxWidth: '360px', margin: '16px auto', display: 'block' }}
-          />
-        </div>
-      ) : (
-        <div className="glass-panel" style={{ padding: '32px' }}>
+      <div className="glass-panel" style={{ padding: '32px' }}>
           {errorAlert && (
             <div className="alert alert-danger" style={{ marginBottom: '20px' }}>
               {errorAlert}
@@ -154,7 +144,6 @@ function OrderConfirmationContent() {
             </Link>
           </div>
         </div>
-      )}
     </div>
   );
 }

@@ -30,10 +30,14 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Read stored token and coupon code from sessionStorage
-    const storedToken = sessionStorage.getItem('luxe_buyer_token');
+    // Read stored token and coupon code from sessionStorage or localStorage
+    const storedToken = sessionStorage.getItem('luxe_buyer_token') || localStorage.getItem('luxe_buyer_token');
     const storedCoupon = sessionStorage.getItem('luxe_coupon_code');
-    if (storedToken) setBuyerToken(storedToken);
+    if (storedToken) {
+      setBuyerToken(storedToken);
+    } else {
+      router.push('/login?redirect=/checkout');
+    }
     if (storedCoupon) setCouponCode(storedCoupon);
 
     // Load Razorpay Checkout SDK script dynamically
@@ -41,12 +45,12 @@ export default function CheckoutPage() {
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
     document.body.appendChild(script);
-  }, []);
+  }, [router]);
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!buyerToken) {
-      setErrorAlert('Please enter a valid Buyer JWT Token to initialize checkout.');
+      router.push('/login?redirect=/checkout');
       return;
     }
     if (cartItems.length === 0) {
@@ -202,17 +206,7 @@ export default function CheckoutPage() {
 
         {/* Checkout Summary & Pay Action */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <label className="form-label">Buyer JWT Token</label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Paste Buyer JWT Token..."
-              value={buyerToken}
-              onChange={(e) => setBuyerToken(e.target.value)}
-              required
-            />
-          </div>
+
 
           <div className="glass-panel" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '16px' }}>Summary</h3>

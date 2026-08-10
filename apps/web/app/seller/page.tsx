@@ -83,14 +83,6 @@ export default function SellerPortalPage() {
     }
   }, [loadSellerData]);
 
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (sellerToken.trim()) {
-      sessionStorage.setItem('luxe_seller_token', sellerToken.trim());
-      loadSellerData(sellerToken.trim());
-    }
-  };
-
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sellerToken) return;
@@ -212,27 +204,21 @@ export default function SellerPortalPage() {
         </Link>
       </div>
 
-      {/* Global Token Bar */}
-      <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: '24px' }}>
-        <form onSubmit={handleTokenSubmit} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-primary)' }}>Seller Authentication:</span>
-          <input
-            type="password"
-            className="form-input"
-            placeholder="Paste Seller JWT Token..."
-            value={sellerToken}
-            onChange={(e) => setSellerToken(e.target.value)}
-            style={{ flex: '1 1 300px' }}
-          />
-          <button type="submit" className="btn btn-primary btn-sm">
-            Set Session
-          </button>
-        </form>
-      </div>
-
-      {/* Global Alerts */}
-      {alertError && <div className="alert alert-danger" style={{ marginBottom: '20px' }}>{alertError}</div>}
-      {alertSuccess && <div className="alert alert-success" style={{ marginBottom: '20px' }}>{alertSuccess}</div>}
+      {!sellerToken ? (
+        <div className="glass-panel" style={{ padding: '48px 24px', textAlign: 'center', margin: '32px 0' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px' }}>Seller Authentication Required</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '480px', margin: '0 auto 24px' }}>
+            Please log in with your Seller account credentials to access the Seller Portal, manage catalog products, track shipments, and view payouts.
+          </p>
+          <Link href="/login" className="btn btn-primary">
+            Log In to Seller Portal →
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Global Alerts */}
+          {alertError && <div className="alert alert-danger" style={{ marginBottom: '20px' }}>{alertError}</div>}
+          {alertSuccess && <div className="alert alert-success" style={{ marginBottom: '20px' }}>{alertSuccess}</div>}
 
       {/* Navigation Tabs */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -608,6 +594,8 @@ export default function SellerPortalPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
+  )}
+</div>
   );
 }

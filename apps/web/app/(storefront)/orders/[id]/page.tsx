@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { fetchOrderById, formatRupees } from '../../../lib/storefront-client';
 
 interface SubOrder {
@@ -35,9 +35,9 @@ interface OrderDetail {
 
 export default function OrderDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const orderId = params?.id as string;
 
-  const [buyerToken, setBuyerToken] = useState<string>('');
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
@@ -57,16 +57,15 @@ export default function OrderDetailPage() {
   }, []);
 
   useEffect(() => {
-    const token = sessionStorage.getItem('luxe_buyer_token');
+    const token = sessionStorage.getItem('luxe_buyer_token') || localStorage.getItem('luxe_buyer_token');
     if (token) {
-      setBuyerToken(token);
       if (orderId) {
         loadOrderDetail(token, orderId);
       }
     } else {
-      setLoading(false);
+      router.push(`/login?redirect=/orders/${orderId}`);
     }
-  }, [orderId, loadOrderDetail]);
+  }, [orderId, loadOrderDetail, router]);
 
   const getShipmentStatusBadge = (status?: string) => {
     switch (status) {
@@ -94,14 +93,7 @@ export default function OrderDetailPage() {
         </h1>
       </div>
 
-      {!buyerToken ? (
-        <div className="glass-panel" style={{ padding: '40px', textAlign: 'center' }}>
-          <h3>Authentication Required</h3>
-          <p style={{ color: 'var(--text-muted)' }}>
-            Paste your Buyer JWT Token to view order details & tracking.
-          </p>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
           Loading order details...
         </div>

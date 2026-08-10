@@ -18,7 +18,7 @@ export function ReviewFormModal({
   onClose,
   onSuccess,
 }: ReviewFormModalProps) {
-  const [buyerToken, setBuyerToken] = useState<string>('');
+
   const [rating, setRating] = useState<number>(5);
   const [title, setTitle] = useState<string>('');
   const [comment, setComment] = useState<string>('');
@@ -31,9 +31,9 @@ export function ReviewFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const storedToken = sessionStorage.getItem('luxe_buyer_token') || buyerToken;
+    const storedToken = sessionStorage.getItem('luxe_buyer_token') || localStorage.getItem('luxe_buyer_token');
     if (!storedToken) {
-      setErrorMessage('Please enter your Buyer JWT Token to submit a review.');
+      setErrorMessage('Please log in to submit a review for this product.');
       return;
     }
 
@@ -127,17 +127,7 @@ export function ReviewFormModal({
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Buyer Token Input */}
-          <div className="form-group">
-            <label className="form-label">Buyer JWT Authentication</label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Paste Buyer JWT Token..."
-              value={buyerToken}
-              onChange={(e) => setBuyerToken(e.target.value)}
-            />
-          </div>
+
 
           {/* Star Rating Selector */}
           <div className="form-group">

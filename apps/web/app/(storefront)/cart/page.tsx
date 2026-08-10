@@ -32,7 +32,7 @@ export default function CartPage() {
     e.preventDefault();
     if (!couponCode.trim()) return;
     if (!buyerToken) {
-      setCouponError('Please enter a Buyer JWT token to preview coupon discounts.');
+      router.push('/login?redirect=/cart');
       return;
     }
     try {
@@ -58,7 +58,10 @@ export default function CartPage() {
   };
 
   const handleProceedToCheckout = () => {
-    // Store token and validated coupon in sessionStorage before navigation
+    if (!buyerToken) {
+      router.push('/login?redirect=/checkout');
+      return;
+    }
     if (buyerToken) {
       sessionStorage.setItem('luxe_buyer_token', buyerToken);
     }
@@ -163,20 +166,7 @@ export default function CartPage() {
 
           {/* Cart Summary & Coupon Section */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Token Input Bar */}
-            <div className="glass-panel" style={{ padding: '20px' }}>
-              <label className="form-label">Buyer JWT Authentication</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="Paste Buyer JWT Token for checkout..."
-                value={buyerToken}
-                onChange={(e) => setBuyerToken(e.target.value)}
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                Required to validate coupons & initialize checkout session.
-              </span>
-            </div>
+
 
             {/* Coupon Discount Preview */}
             <div className="glass-panel" style={{ padding: '20px' }}>

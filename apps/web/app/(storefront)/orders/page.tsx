@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { fetchMyOrders, formatRupees } from '../../lib/storefront-client';
 
 interface OrderSummary {
@@ -20,10 +21,10 @@ interface OrderSummary {
 }
 
 export default function OrderHistoryPage() {
-  const [buyerToken, setBuyerToken] = useState<string>('');
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
+  const router = useRouter();
 
   const loadOrders = useCallback(async (token: string) => {
     try {
@@ -40,22 +41,13 @@ export default function OrderHistoryPage() {
   }, []);
 
   useEffect(() => {
-    const token = sessionStorage.getItem('luxe_buyer_token');
+    const token = sessionStorage.getItem('luxe_buyer_token') || localStorage.getItem('luxe_buyer_token');
     if (token) {
-      setBuyerToken(token);
       loadOrders(token);
     } else {
-      setLoading(false);
+      router.push('/login?redirect=/orders');
     }
-  }, [loadOrders]);
-
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (buyerToken.trim()) {
-      sessionStorage.setItem('luxe_buyer_token', buyerToken.trim());
-      loadOrders(buyerToken.trim());
-    }
-  };
+  }, [loadOrders, router]);
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
@@ -80,33 +72,12 @@ export default function OrderHistoryPage() {
         </Link>
       </div>
 
-      {!buyerToken ? (
-        <div className="glass-panel" style={{ padding: '40px', textAlign: 'center' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '12px' }}>Authentication Required</h3>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
-            Paste your Buyer JWT Token to view your order history & shipment tracking.
-          </p>
-          <form onSubmit={handleTokenSubmit} style={{ maxWidth: '400px', margin: '0 auto', display: 'flex', gap: '8px' }}>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="Paste Buyer JWT Token..."
-              value={buyerToken}
-              onChange={(e) => setBuyerToken(e.target.value)}
-              required
-            />
-            <button type="submit" className="btn btn-primary">
-              View
-            </button>
-          </form>
-        </div>
-      ) : (
-        <div>
-          {errorAlert && (
-            <div className="alert alert-danger" style={{ marginBottom: '24px' }}>
-              {errorAlert}
-            </div>
-          )}
+      <div>
+        {errorAlert && (
+          <div className="alert alert-danger" style={{ marginBottom: '24px' }}>
+            {errorAlert}
+          </div>
+        )}
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: '64px', color: 'var(--text-muted)' }}>
@@ -179,7 +150,6 @@ export default function OrderHistoryPage() {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }
