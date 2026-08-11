@@ -1,13 +1,15 @@
-'use me';
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { API_BASE_URL } from '../lib/storefront-client';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTarget = searchParams.get('redirect') || '/cart';
+
   const [phone, setPhone] = useState('+919999999999');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'REQUEST' | 'VERIFY'>('REQUEST');
@@ -61,10 +63,18 @@ export default function LoginPage() {
 
       if (data.accessToken) {
         sessionStorage.setItem('luxe_buyer_token', data.accessToken);
+        sessionStorage.setItem('luxe_seller_token', data.accessToken);
+        sessionStorage.setItem('luxe_admin_token', data.accessToken);
+        localStorage.setItem('luxe_buyer_token', data.accessToken);
+        localStorage.setItem('luxe_seller_token', data.accessToken);
+        localStorage.setItem('luxe_admin_token', data.accessToken);
+
         if (data.refreshToken) {
           sessionStorage.setItem('luxe_refresh_token', data.refreshToken);
+          localStorage.setItem('luxe_refresh_token', data.refreshToken);
         }
-        router.push('/cart');
+
+        router.push(redirectTarget);
       } else {
         throw new Error('No access token returned from server');
       }
@@ -79,7 +89,7 @@ export default function LoginPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#09090b', color: '#f4f4f5', padding: '24px' }}>
       <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '32px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(18, 18, 20, 0.8)' }}>
         <h2 style={{ fontSize: '1.5rem', fontWeight: 800, textAlign: 'center', marginBottom: '8px' }}>
-          Buyer Account Login
+          Platform Account Login
         </h2>
         <p style={{ fontSize: '0.875rem', color: '#a1a1aa', textAlign: 'center', marginBottom: '24px' }}>
           Enter your mobile phone number to log in via OTP
@@ -157,5 +167,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading authentication...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

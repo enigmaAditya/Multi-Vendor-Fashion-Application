@@ -76,7 +76,11 @@ export default function SellerPortalPage() {
   }, []);
 
   useEffect(() => {
-    const token = sessionStorage.getItem('luxe_seller_token') || localStorage.getItem('luxe_seller_token');
+    const token =
+      sessionStorage.getItem('luxe_seller_token') ||
+      sessionStorage.getItem('luxe_buyer_token') ||
+      localStorage.getItem('luxe_seller_token') ||
+      localStorage.getItem('luxe_buyer_token');
     if (token) {
       setSellerToken(token);
       loadSellerData(token);
@@ -210,7 +214,7 @@ export default function SellerPortalPage() {
           <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '480px', margin: '0 auto 24px' }}>
             Please log in with your Seller account credentials to access the Seller Portal, manage catalog products, track shipments, and view payouts.
           </p>
-          <Link href="/login" className="btn btn-primary">
+          <Link href="/login?redirect=/seller" className="btn btn-primary">
             Log In to Seller Portal →
           </Link>
         </div>

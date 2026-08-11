@@ -26,7 +26,11 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    const token = sessionStorage.getItem('luxe_admin_token') || localStorage.getItem('luxe_admin_token');
+    const token =
+      sessionStorage.getItem('luxe_admin_token') ||
+      sessionStorage.getItem('luxe_buyer_token') ||
+      localStorage.getItem('luxe_admin_token') ||
+      localStorage.getItem('luxe_buyer_token');
     if (token) {
       setAdminToken(token);
     }
@@ -236,7 +240,7 @@ export default function AdminDashboardPage() {
           <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '480px', margin: '0 auto 24px' }}>
             Please log in with Admin privileges to access operator controls, seller KYC approvals, catalog moderation, and financial summaries.
           </p>
-          <Link href="/login" className="btn btn-primary">
+          <Link href="/login?redirect=/admin" className="btn btn-primary">
             Log In as Admin →
           </Link>
         </div>
