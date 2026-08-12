@@ -15,11 +15,13 @@ import {
   SellerRecord,
   ProductModerationItem,
 } from '../lib/admin-client';
+import { getUserRolesFromToken } from '../lib/storefront-client';
 
 type TabType = 'overview' | 'sellers' | 'catalog' | 'reviews' | 'commissions' | 'finance';
 
 export default function AdminDashboardPage() {
   const [adminToken, setAdminToken] = useState<string>('');
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [successAlert, setSuccessAlert] = useState<string | null>(null);
@@ -33,6 +35,8 @@ export default function AdminDashboardPage() {
       localStorage.getItem('luxe_buyer_token');
     if (token) {
       setAdminToken(token);
+      const roles = getUserRolesFromToken(token);
+      setUserRoles(roles);
     }
   }, []);
 
@@ -242,6 +246,18 @@ export default function AdminDashboardPage() {
           </p>
           <Link href="/login?redirect=/admin" className="btn btn-primary">
             Log In as Admin →
+          </Link>
+        </div>
+      ) : userRoles.length > 0 && !userRoles.includes('ADMIN') ? (
+        <div className="glass-panel" style={{ padding: '48px 24px', textAlign: 'center', margin: '32px 0' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px', color: 'var(--status-danger-text)' }}>
+            🔒 Access Denied: Administrator Privileges Required
+          </h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '520px', margin: '0 auto 24px' }}>
+            Your logged-in account does not have ADMIN privileges. Operator control panel operations are strictly restricted to platform administrators.
+          </p>
+          <Link href="/login?redirect=/admin" className="btn btn-primary">
+            Switch Account / Log In →
           </Link>
         </div>
       ) : (

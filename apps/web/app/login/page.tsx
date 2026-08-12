@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { API_BASE_URL } from '../lib/storefront-client';
+import { API_BASE_URL, getUserRolesFromToken } from '../lib/storefront-client';
 
 function LoginContent() {
   const router = useRouter();
@@ -63,15 +63,17 @@ function LoginContent() {
 
       if (data.accessToken) {
         sessionStorage.setItem('luxe_buyer_token', data.accessToken);
-        sessionStorage.setItem('luxe_seller_token', data.accessToken);
-        sessionStorage.setItem('luxe_admin_token', data.accessToken);
-        localStorage.setItem('luxe_buyer_token', data.accessToken);
-        localStorage.setItem('luxe_seller_token', data.accessToken);
-        localStorage.setItem('luxe_admin_token', data.accessToken);
+        const roles = getUserRolesFromToken(data.accessToken);
+
+        if (roles.includes('SELLER')) {
+          sessionStorage.setItem('luxe_seller_token', data.accessToken);
+        }
+        if (roles.includes('ADMIN')) {
+          sessionStorage.setItem('luxe_admin_token', data.accessToken);
+        }
 
         if (data.refreshToken) {
           sessionStorage.setItem('luxe_refresh_token', data.refreshToken);
-          localStorage.setItem('luxe_refresh_token', data.refreshToken);
         }
 
         router.push(redirectTarget);

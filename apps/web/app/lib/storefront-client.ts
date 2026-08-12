@@ -438,3 +438,28 @@ export async function fetchProductReviews(productId: string): Promise<ReviewItem
   const data = await res.json().catch(() => []);
   return Array.isArray(data) ? data : Array.isArray(data?.reviews) ? data.reviews : [];
 }
+
+export function getUserRolesFromToken(token: string): string[] {
+  if (!token || typeof token !== 'string') return [];
+  try {
+    const parts = token.split('.');
+    const payloadSegment = parts[1];
+    if (!payloadSegment) return [];
+    let base64 = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    );
+    const parsed = JSON.parse(jsonPayload) as { roles?: string[]; role?: string };
+    if (Array.isArray(parsed.roles)) return parsed.roles;
+    if (typeof parsed.role === 'string') return [parsed.role];
+    return [];
+  } catch {
+    return [];
+  }
+}

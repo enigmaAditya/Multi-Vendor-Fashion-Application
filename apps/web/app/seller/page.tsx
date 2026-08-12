@@ -12,7 +12,7 @@ import {
   dispatchSubOrderShipment,
   SellerSubOrder,
 } from '../lib/seller-client';
-import { formatRupees, fetchCategories, CategoryNode } from '../lib/storefront-client';
+import { formatRupees, fetchCategories, CategoryNode, getUserRolesFromToken } from '../lib/storefront-client';
 
 interface SellerPayout {
   id: string;
@@ -26,6 +26,7 @@ interface SellerPayout {
 
 export default function SellerPortalPage() {
   const [sellerToken, setSellerToken] = useState<string>('');
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'catalog' | 'inventory' | 'orders' | 'payouts'>('overview');
 
   // Global Alerts
@@ -83,6 +84,8 @@ export default function SellerPortalPage() {
       localStorage.getItem('luxe_buyer_token');
     if (token) {
       setSellerToken(token);
+      const roles = getUserRolesFromToken(token);
+      setUserRoles(roles);
       loadSellerData(token);
     }
   }, [loadSellerData]);
@@ -216,6 +219,18 @@ export default function SellerPortalPage() {
           </p>
           <Link href="/login?redirect=/seller" className="btn btn-primary">
             Log In to Seller Portal →
+          </Link>
+        </div>
+      ) : userRoles.length > 0 && !userRoles.includes('SELLER') && !userRoles.includes('ADMIN') ? (
+        <div className="glass-panel" style={{ padding: '48px 24px', textAlign: 'center', margin: '32px 0' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px', color: 'var(--status-danger-text)' }}>
+            🔒 Access Denied: Seller Merchant Privileges Required
+          </h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '520px', margin: '0 auto 24px' }}>
+            Your logged-in account does not have SELLER merchant privileges. Please log in with a registered seller merchant account to access the Seller Portal.
+          </p>
+          <Link href="/login?redirect=/seller" className="btn btn-primary">
+            Switch Account / Log In →
           </Link>
         </div>
       ) : (
