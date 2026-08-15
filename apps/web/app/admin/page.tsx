@@ -232,8 +232,20 @@ export default function AdminDashboardPage() {
 
         {/* Token Status Badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className={`badge ${adminToken ? 'badge-success' : 'badge-warning'}`}>
-            {adminToken ? '✓ Admin Authenticated' : '🔒 Admin Session Required'}
+          <span
+            className={`badge ${
+              adminToken && userRoles.includes('ADMIN')
+                ? 'badge-success'
+                : adminToken
+                  ? 'badge-danger'
+                  : 'badge-warning'
+            }`}
+          >
+            {adminToken && userRoles.includes('ADMIN')
+              ? '✓ Admin Authenticated'
+              : adminToken
+                ? '🔒 Access Denied'
+                : '🔒 Admin Session Required'}
           </span>
         </div>
       </header>
@@ -248,7 +260,7 @@ export default function AdminDashboardPage() {
             Log In as Admin →
           </Link>
         </div>
-      ) : userRoles.length > 0 && !userRoles.includes('ADMIN') ? (
+      ) : !userRoles.includes('ADMIN') ? (
         <div className="glass-panel" style={{ padding: '48px 24px', textAlign: 'center', margin: '32px 0' }}>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px', color: 'var(--status-danger-text)' }}>
             🔒 Access Denied: Administrator Privileges Required

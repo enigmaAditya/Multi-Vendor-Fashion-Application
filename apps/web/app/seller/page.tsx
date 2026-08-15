@@ -206,9 +206,26 @@ export default function SellerPortalPage() {
             Multi-vendor merchant control center for catalog, stock, fulfillment, and payouts.
           </p>
         </div>
-        <Link href="/" className="btn btn-secondary btn-sm">
-          ← Back to Storefront
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span
+            className={`badge ${
+              sellerToken && (userRoles.includes('SELLER') || userRoles.includes('ADMIN'))
+                ? 'badge-success'
+                : sellerToken
+                  ? 'badge-danger'
+                  : 'badge-warning'
+            }`}
+          >
+            {sellerToken && (userRoles.includes('SELLER') || userRoles.includes('ADMIN'))
+              ? '✓ Seller Authenticated'
+              : sellerToken
+                ? '🔒 Access Denied'
+                : '🔒 Seller Session Required'}
+          </span>
+          <Link href="/" className="btn btn-secondary btn-sm">
+            ← Back to Storefront
+          </Link>
+        </div>
       </div>
 
       {!sellerToken ? (
@@ -221,7 +238,7 @@ export default function SellerPortalPage() {
             Log In to Seller Portal →
           </Link>
         </div>
-      ) : userRoles.length > 0 && !userRoles.includes('SELLER') && !userRoles.includes('ADMIN') ? (
+      ) : !userRoles.includes('SELLER') && !userRoles.includes('ADMIN') ? (
         <div className="glass-panel" style={{ padding: '48px 24px', textAlign: 'center', margin: '32px 0' }}>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px', color: 'var(--status-danger-text)' }}>
             🔒 Access Denied: Seller Merchant Privileges Required
