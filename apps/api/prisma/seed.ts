@@ -13,6 +13,12 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.SEED_CONFIRM !== 'yes') {
+    throw new Error(
+      'FATAL: Seeding in production wipes every table! Refusing to run unless SEED_CONFIRM=yes.',
+    );
+  }
+
   console.log('🌱 Starting database seeding...');
 
   // 1. Clear existing data in correct dependency order
