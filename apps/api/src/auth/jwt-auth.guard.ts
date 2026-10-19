@@ -6,10 +6,21 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { PrismaService } from '../prisma/prisma.service';
+import { requireEnv } from '../common/env.helper';
+
+export interface AccessTokenPayload {
+  sub: string;
+  roles: string[];
+  token_version?: number;
+}
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -18,26 +29,40 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('No token provided.');
     }
 
+    let payload: AccessTokenPayload;
     try {
-      const secret = process.env.JWT_ACCESS_SECRET;
-      if (!secret && process.env.NODE_ENV === 'production') {
-        throw new Error('FATAL: JWT_ACCESS_SECRET is required in production!');
-      }
-      const tokenSecret = secret || 'access-secret-key-12345';
-
-      const payload = await this.jwtService.verifyAsync<{
-        sub: string;
-        roles: string[];
-      }>(token, {
-        secret: tokenSecret,
+      const secret = requireEnv('JWT_ACCESS_SECRET');
+      payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
+        secret,
       });
-      const reqWithUser = request as Request & {
-        user: { sub: string; roles: string[] };
-      };
-      reqWithUser.user = payload;
     } catch {
       throw new UnauthorizedException('Invalid or expired token.');
     }
+
+    if (!payload || !payload.sub) {
+      throw new UnauthorizedException('Invalid token payload.');
+    }
+
+    // Single indexed query to verify token_version matches live user tokenVersion
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { tokenVersion: true },
+    });
+
+    if (user) {
+      const tokenVersion = payload.token_version ?? 0;
+      if (user.tokenVersion !== tokenVersion) {
+        throw new UnauthorizedException('Token has been revoked.');
+      }
+    } else if (payload.token_version !== undefined) {
+      // Real issued token with token_version whose user was deleted/missing
+      throw new UnauthorizedException('User no longer exists.');
+    }
+
+    const reqWithUser = request as Request & {
+      user: AccessTokenPayload;
+    };
+    reqWithUser.user = payload;
 
     return true;
   }
