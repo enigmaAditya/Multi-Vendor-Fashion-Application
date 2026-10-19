@@ -17,6 +17,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
 import { AdminModule } from './admin/admin.module';
 
+import { APP_FILTER } from '@nestjs/core';
+import { GlobalExceptionFilter } from './common/global-exception.filter';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -38,6 +40,12 @@ import { HealthController } from './health/health.controller';
     AdminModule,
   ],
   controllers: [AppController, HealthController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
+  ],
 })
 export class AppModule {}
