@@ -36,7 +36,7 @@ export class AuthService {
   }
 
   // Request Phone OTP
-  async requestOtp(phone: string): Promise<void> {
+  async requestOtp(phone: string): Promise<{ demoOtp?: string }> {
     const redisClient = this.redis.getClient();
     const throttleKey = `otp_throttle:${phone}`;
 
@@ -105,6 +105,21 @@ export class AuthService {
         `[PROD-SMS-SENT] Gateway delivery triggered for ${phone}`,
       );
     }
+
+    // 7. Check DEMO_MODE flag (strictly parsed === 'true')
+    const isDemoMode = process.env.DEMO_MODE === 'true';
+    if (isDemoMode) {
+      const user = await this.prisma.user.findUnique({
+        where: { phone },
+        select: { roles: true },
+      });
+      const isAdmin = user?.roles?.includes('ADMIN') ?? false;
+      if (!isAdmin) {
+        return { demoOtp: code };
+      }
+    }
+
+    return {};
   }
 
   // Verify Phone OTP
