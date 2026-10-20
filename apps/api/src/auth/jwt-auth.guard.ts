@@ -43,20 +43,18 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token payload.');
     }
 
-    // Single indexed query to verify token_version matches live user tokenVersion
+    // Single indexed query to verify user exists and token_version matches live user tokenVersion
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { tokenVersion: true },
     });
 
-    if (user) {
-      const tokenVersion = payload.token_version ?? 0;
-      if (user.tokenVersion !== tokenVersion) {
-        throw new UnauthorizedException('Token has been revoked.');
-      }
-    } else if (payload.token_version !== undefined) {
-      // Real issued token with token_version whose user was deleted/missing
+    if (!user) {
       throw new UnauthorizedException('User no longer exists.');
+    }
+
+    if (payload.token_version !== user.tokenVersion) {
+      throw new UnauthorizedException('Token has been revoked.');
     }
 
     const reqWithUser = request as Request & {

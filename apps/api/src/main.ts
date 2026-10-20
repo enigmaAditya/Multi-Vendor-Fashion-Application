@@ -4,7 +4,6 @@ import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 
 import { requireEnv } from './common/env.helper';
-import { GlobalExceptionFilter } from './common/global-exception.filter';
 
 async function bootstrap() {
   requireEnv('DATABASE_URL');
@@ -20,7 +19,6 @@ async function bootstrap() {
     return this.toString();
   };
   const app = await NestFactory.create(AppModule, { rawBody: true });
-  app.useGlobalFilters(new GlobalExceptionFilter());
   app.use(cookieParser());
   app.enableCors({
     origin: process.env.WEB_ORIGIN || 'http://localhost:3000',
