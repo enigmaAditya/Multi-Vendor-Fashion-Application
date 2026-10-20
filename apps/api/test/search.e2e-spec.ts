@@ -31,6 +31,7 @@ import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { SearchService } from '../src/search/search.service';
 import { JwtService } from '@nestjs/jwt';
+import { signTestToken } from './utils/auth-helper';
 
 describe('Search & Discovery System (e2e)', () => {
   let app: INestApplication<App>;
@@ -54,13 +55,11 @@ describe('Search & Discovery System (e2e)', () => {
     searchService = app.get<SearchService>(SearchService);
 
     adminId = crypto.randomUUID();
-    adminToken = await jwtService.signAsync(
-      { sub: adminId, roles: ['ADMIN'] },
-      {
-        secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
-        expiresIn: '15m',
-      },
-    );
+    adminToken = await signTestToken(jwtService, {
+      sub: adminId,
+      roles: ['ADMIN'],
+      token_version: 0,
+    });
   });
 
   beforeEach(async () => {
@@ -87,6 +86,14 @@ describe('Search & Discovery System (e2e)', () => {
     await prisma.brand.deleteMany({});
     await prisma.outboxEvent.deleteMany({});
     await prisma.user.deleteMany({});
+    await prisma.user.create({
+      data: {
+        id: adminId,
+        phone: '+919999999999',
+        roles: ['ADMIN'],
+        tokenVersion: 0,
+      },
+    });
     jest.clearAllMocks();
   });
 

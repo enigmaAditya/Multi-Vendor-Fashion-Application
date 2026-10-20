@@ -30,6 +30,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { signTestToken } from './utils/auth-helper';
 
 describe('Orders & Checkout System (e2e)', () => {
   let app: INestApplication<App>;
@@ -64,15 +65,16 @@ describe('Orders & Checkout System (e2e)', () => {
     sellerId = crypto.randomUUID();
     buyerId = crypto.randomUUID();
 
-    const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
-    sellerToken = await jwtService.signAsync(
-      { sub: sellerId, roles: ['SELLER'] },
-      { secret, expiresIn: '15m' },
-    );
-    buyerToken = await jwtService.signAsync(
-      { sub: buyerId, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
+    sellerToken = await signTestToken(jwtService, {
+      sub: sellerId,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
+    buyerToken = await signTestToken(jwtService, {
+      sub: buyerId,
+      roles: ['USER'],
+      token_version: 0,
+    });
   });
 
   beforeEach(async () => {
@@ -390,11 +392,11 @@ describe('Orders & Checkout System (e2e)', () => {
         roles: ['USER'],
       },
     });
-    const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
-    const buyer2Token = await jwtService.signAsync(
-      { sub: buyer2Id, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
+    const buyer2Token = await signTestToken(jwtService, {
+      sub: buyer2Id,
+      roles: ['USER'],
+      token_version: 0,
+    });
 
     // Create an order for buyer 1
     const order1 = await prisma.order.create({

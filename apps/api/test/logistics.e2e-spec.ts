@@ -9,6 +9,7 @@ import { AppModule } from '../src/app.module';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { LogisticsProcessor } from '../src/logistics/logistics.processor';
+import { signTestToken, createTestUserAndToken } from './utils/auth-helper';
 
 describe('Logistics & Shiprocket Webhook (e2e)', () => {
   jest.setTimeout(25000);
@@ -68,10 +69,11 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
       } as any);
     });
 
-    adminToken = await jwtService.signAsync(
-      { sub: adminId, roles: ['ADMIN'] },
-      { secret, expiresIn: '15m' },
-    );
+    adminToken = await signTestToken(jwtService, {
+      sub: adminId,
+      roles: ['ADMIN'],
+      token_version: 0,
+    });
   });
 
   afterAll(async () => {
@@ -106,10 +108,28 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
 
     // Seed Core Entities
     await prisma.user.create({
-      data: { id: buyerId, phone: '+919999999991', roles: ['USER'] },
+      data: {
+        id: buyerId,
+        phone: '+919999999991',
+        roles: ['USER'],
+        tokenVersion: 0,
+      },
     });
     await prisma.user.create({
-      data: { id: sellerId, phone: '+919999999992', roles: ['SELLER'] },
+      data: {
+        id: sellerId,
+        phone: '+919999999992',
+        roles: ['SELLER'],
+        tokenVersion: 0,
+      },
+    });
+    await prisma.user.create({
+      data: {
+        id: adminId,
+        phone: '+919999999993',
+        roles: ['ADMIN'],
+        tokenVersion: 0,
+      },
     });
 
     const category = await prisma.category.create({
@@ -510,18 +530,12 @@ describe('Logistics & Shiprocket Webhook (e2e)', () => {
 
     it('should reject seller dispatch attempt for sub-orders owned by another seller (403 Forbidden)', async () => {
       // Create seller 2 and seller 2 token
-      const seller2Id = crypto.randomUUID();
-      await prisma.user.create({
-        data: {
-          id: seller2Id,
-          phone: `+91988${Math.floor(1000000 + Math.random() * 9000000)}`,
+      const { token: seller2Token } = await createTestUserAndToken(
+        prisma,
+        jwtService,
+        {
           roles: ['SELLER'],
         },
-      });
-      const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
-      const seller2Token = await jwtService.signAsync(
-        { sub: seller2Id, roles: ['SELLER'] },
-        { secret, expiresIn: '15m' },
       );
 
       // Create order and sub-order owned by seller 1

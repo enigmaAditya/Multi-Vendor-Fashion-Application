@@ -8,6 +8,7 @@ import * as net from 'net';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { signTestToken } from './utils/auth-helper';
 import { IStorefrontClient, ISellerClient } from '@marketplace/types';
 
 try {
@@ -73,13 +74,11 @@ describe('Client Seam E2E System (e2e)', () => {
     sellerId = crypto.randomUUID();
 
     // Sign a seller session token
-    sellerToken = await jwtService.signAsync(
-      { sub: sellerId, roles: ['SELLER'] },
-      {
-        secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
-        expiresIn: '15m',
-      },
-    );
+    sellerToken = await signTestToken(jwtService, {
+      sub: sellerId,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
   });
 
   afterAll(async () => {

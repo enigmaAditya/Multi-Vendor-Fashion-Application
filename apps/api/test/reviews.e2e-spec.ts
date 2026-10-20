@@ -30,6 +30,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { signTestToken } from './utils/auth-helper';
 
 describe('Reviews System (e2e)', () => {
   let app: INestApplication<App>;
@@ -61,19 +62,21 @@ describe('Reviews System (e2e)', () => {
     nonBuyerId = crypto.randomUUID();
     adminId = crypto.randomUUID();
 
-    const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
-    buyerToken = await jwtService.signAsync(
-      { sub: buyerId, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
-    nonBuyerToken = await jwtService.signAsync(
-      { sub: nonBuyerId, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
-    adminToken = await jwtService.signAsync(
-      { sub: adminId, roles: ['ADMIN'] },
-      { secret, expiresIn: '15m' },
-    );
+    buyerToken = await signTestToken(jwtService, {
+      sub: buyerId,
+      roles: ['USER'],
+      token_version: 0,
+    });
+    nonBuyerToken = await signTestToken(jwtService, {
+      sub: nonBuyerId,
+      roles: ['USER'],
+      token_version: 0,
+    });
+    adminToken = await signTestToken(jwtService, {
+      sub: adminId,
+      roles: ['ADMIN'],
+      token_version: 0,
+    });
   });
 
   beforeEach(async () => {

@@ -32,6 +32,7 @@ import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { StorageService } from '../src/media/storage.service';
+import { signTestToken } from './utils/auth-helper';
 
 describe('Media System (e2e)', () => {
   jest.setTimeout(30000);
@@ -105,20 +106,16 @@ describe('Media System (e2e)', () => {
       ],
     });
 
-    sellerToken = await jwtService.signAsync(
-      { sub: sellerId, roles: ['SELLER'] },
-      {
-        secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
-        expiresIn: '15m',
-      },
-    );
-    otherSellerToken = await jwtService.signAsync(
-      { sub: otherSellerId, roles: ['SELLER'] },
-      {
-        secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
-        expiresIn: '15m',
-      },
-    );
+    sellerToken = await signTestToken(jwtService, {
+      sub: sellerId,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
+    otherSellerToken = await signTestToken(jwtService, {
+      sub: otherSellerId,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
   });
 
   afterAll(async () => {

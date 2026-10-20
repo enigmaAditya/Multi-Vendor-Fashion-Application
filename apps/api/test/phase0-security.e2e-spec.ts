@@ -1,27 +1,7 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-
-try {
-  const envContent = fs.readFileSync(
-    path.resolve(__dirname, '../.env'),
-    'utf8',
-  );
-  for (const line of envContent.split('\n')) {
-    const parts = line.split('=');
-    if (parts.length >= 2) {
-      const key = parts[0].trim();
-      const val = parts
-        .slice(1)
-        .join('=')
-        .trim()
-        .replace(/^["']|["']$/g, '');
-      process.env[key] = val;
-    }
-  }
-} catch {
-  // Ignore if file doesn't exist
-}
+import { spawn } from 'child_process';
+import { once } from 'events';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
@@ -58,10 +38,18 @@ describe('Phase 0 Security & Validation Invariants (e2e)', () => {
   });
 
   beforeEach(async () => {
+    await prisma.commissionLedger.deleteMany({});
+    await prisma.payout.deleteMany({});
+    await prisma.sellerLinkedAccount.deleteMany({});
+    await prisma.commissionRule.deleteMany({});
+    await prisma.paymentWebhookLog.deleteMany({});
+    await prisma.shipmentWebhookLog.deleteMany({});
     await prisma.userProductView.deleteMany({});
     await prisma.orderItem.deleteMany({});
     await prisma.subOrder.deleteMany({});
     await prisma.order.deleteMany({});
+    await prisma.inventoryReservation.deleteMany({});
+    await prisma.inventoryLedger.deleteMany({});
     await prisma.skuInventory.deleteMany({});
     await prisma.sku.deleteMany({});
     await prisma.productImage.deleteMany({});
@@ -346,15 +334,32 @@ describe('Phase 0 Security & Validation Invariants (e2e)', () => {
     expect(resAfter.body.message).toContain('revoked');
   });
 
-  it('8. Booting without JWT_ACCESS_SECRET -> process exits with the requireEnv error', () => {
-    const original = process.env.JWT_ACCESS_SECRET;
-    try {
-      delete process.env.JWT_ACCESS_SECRET;
-      expect(() => requireEnv('JWT_ACCESS_SECRET')).toThrow(
-        /FATAL: Environment variable "JWT_ACCESS_SECRET" is required but not set/,
-      );
-    } finally {
-      process.env.JWT_ACCESS_SECRET = original;
-    }
+  it('8. Booting without JWT_ACCESS_SECRET -> process exits with the requireEnv error', async () => {
+    const mainJsPath = path.resolve(__dirname, '../dist/main.js');
+    const childEnv: Record<string, string | undefined> = {
+      ...process.env,
+      DATABASE_URL:
+        process.env.DATABASE_URL ||
+        'postgresql://dev:dev@localhost:5432/marketplace_test',
+      REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+      DOTENV_CONFIG_PATH: '/dev/null',
+    };
+    delete childEnv.JWT_ACCESS_SECRET;
+
+    const child = spawn(process.execPath, [mainJsPath], {
+      env: childEnv,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    const [exitCode] = await once(child, 'exit');
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain(
+      'Environment variable "JWT_ACCESS_SECRET" is required',
+    );
   });
 });

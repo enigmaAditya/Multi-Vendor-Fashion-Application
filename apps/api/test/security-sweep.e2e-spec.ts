@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { signTestToken } from './utils/auth-helper';
 import * as crypto from 'crypto';
 
 type App = Parameters<typeof request>[0];
@@ -39,24 +40,26 @@ describe('Systematic Authorization & IDOR Security Sweep (e2e)', () => {
     seller1Id = crypto.randomUUID();
     seller2Id = crypto.randomUUID();
 
-    const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
-
-    buyer1Token = await jwtService.signAsync(
-      { sub: buyer1Id, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
-    buyer2Token = await jwtService.signAsync(
-      { sub: buyer2Id, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
-    seller1Token = await jwtService.signAsync(
-      { sub: seller1Id, roles: ['SELLER'] },
-      { secret, expiresIn: '15m' },
-    );
-    seller2Token = await jwtService.signAsync(
-      { sub: seller2Id, roles: ['SELLER'] },
-      { secret, expiresIn: '15m' },
-    );
+    buyer1Token = await signTestToken(jwtService, {
+      sub: buyer1Id,
+      roles: ['USER'],
+      token_version: 0,
+    });
+    buyer2Token = await signTestToken(jwtService, {
+      sub: buyer2Id,
+      roles: ['USER'],
+      token_version: 0,
+    });
+    seller1Token = await signTestToken(jwtService, {
+      sub: seller1Id,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
+    seller2Token = await signTestToken(jwtService, {
+      sub: seller2Id,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
 
     // Seed test users
     await prisma.user.createMany({
