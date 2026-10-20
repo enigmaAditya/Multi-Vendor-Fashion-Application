@@ -36,6 +36,8 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+*.rdb
+dump.rdb
 
 # Business & commercial — never commit
 *.docx

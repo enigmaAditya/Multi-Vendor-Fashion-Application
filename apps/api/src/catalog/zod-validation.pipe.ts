@@ -4,32 +4,24 @@ import {
   ArgumentMetadata,
   BadRequestException,
 } from '@nestjs/common';
-import { ZodType } from 'zod';
-
-interface ZodValidationError {
-  errors: Array<{
-    path: Array<string | number>;
-    message: string;
-  }>;
-}
+import { ZodError, ZodType } from 'zod';
 
 @Injectable()
 export class ZodValidationPipe implements PipeTransform {
   constructor(private readonly schema: ZodType) {}
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  transform(value: unknown, metadata: ArgumentMetadata) {
+  transform(value: unknown, metadata?: ArgumentMetadata) {
     try {
       const parsedValue = this.schema.parse(value);
       return parsedValue;
     } catch (error) {
-      const err = error as ZodValidationError;
-      if (err && Array.isArray(err.errors)) {
+      if (error instanceof ZodError) {
         throw new BadRequestException({
           message: 'Validation failed',
-          errors: err.errors.map((e) => ({
-            path: e.path.join('.'),
-            message: e.message,
+          errors: error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
           })),
         });
       }

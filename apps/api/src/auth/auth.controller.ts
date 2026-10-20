@@ -10,6 +10,9 @@ import {
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import type { OtpRequest, OtpVerify, GoogleAuth } from '@marketplace/types';
+import { OtpRequestSchema, OtpVerifySchema } from '@marketplace/types';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { normalizePhone } from '../common/phone.helper';
 
 class OtpRequestDto implements OtpRequest {
   phone: string;
@@ -38,18 +41,25 @@ export class AuthController {
 
   @Post('otp/request')
   @HttpCode(HttpStatus.OK)
-  async requestOtp(@Body() body: OtpRequestDto) {
-    await this.authService.requestOtp(body.phone);
-    return { message: 'OTP sent successfully.' };
+  async requestOtp(
+    @Body(new ZodValidationPipe(OtpRequestSchema)) body: OtpRequestDto,
+  ) {
+    const phone = normalizePhone(body.phone);
+    const result = await this.authService.requestOtp(phone);
+    return {
+      message: 'OTP sent successfully.',
+      ...(result.demoOtp ? { demoOtp: result.demoOtp } : {}),
+    };
   }
 
   @Post('otp/verify')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(
-    @Body() body: OtpVerifyDto,
+    @Body(new ZodValidationPipe(OtpVerifySchema)) body: OtpVerifyDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.verifyOtp(body.phone, body.code);
+    const phone = normalizePhone(body.phone);
+    const result = await this.authService.verifyOtp(phone, body.code);
 
     // Set refresh token HttpOnly cookie for web clients
     this.setRefreshTokenCookie(res, result.refreshToken);

@@ -276,36 +276,12 @@ Follow these steps to spin up the local development infrastructure and verify yo
 - pnpm (v9+ recommended)
 - Docker and Docker Compose
 
-### 1. Environment Configuration
-Copy the template files and populate the required keys:
-```bash
-cp .env.example .env
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-```
-
-### 2. Launch Local Infrastructure Containers
-Start the infrastructure services (PostgreSQL, Redis, Meilisearch, MinIO, Mailpit):
+### Run locally
 ```bash
 docker compose -f infra/docker-compose.yml up -d
-```
-
-### 3. Run Database Migrations & Seeds
-Generate the database client, execute the schema migrations, and load initial seed data (categories tree, brand references, test users):
-```bash
-pnpm --filter api prisma db push
-pnpm --filter api prisma db seed
-```
-
-### 4. Build Workspace Packages
-Build the shared packages (types, constants, configs):
-```bash
-pnpm run build
-```
-
-### 5. Launch Development Servers
-Launch the Next.js storefront/admin dev server and the NestJS backend dev gateway:
-```bash
+pnpm install
+pnpm --filter api exec prisma migrate deploy
+pnpm --filter api exec ts-node prisma/seed.ts
 pnpm dev
 ```
 

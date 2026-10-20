@@ -30,6 +30,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { signTestToken, createTestUserAndToken } from './utils/auth-helper';
 
 describe('Catalog System (e2e)', () => {
   let app: INestApplication<App>;
@@ -56,20 +57,16 @@ describe('Catalog System (e2e)', () => {
     adminId = crypto.randomUUID();
 
     // Sign tokens
-    sellerToken = await jwtService.signAsync(
-      { sub: sellerId, roles: ['SELLER'] },
-      {
-        secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
-        expiresIn: '15m',
-      },
-    );
-    adminToken = await jwtService.signAsync(
-      { sub: adminId, roles: ['ADMIN'] },
-      {
-        secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
-        expiresIn: '15m',
-      },
-    );
+    sellerToken = await signTestToken(jwtService, {
+      sub: sellerId,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
+    adminToken = await signTestToken(jwtService, {
+      sub: adminId,
+      roles: ['ADMIN'],
+      token_version: 0,
+    });
   });
 
   beforeEach(async () => {
@@ -221,11 +218,11 @@ describe('Catalog System (e2e)', () => {
       });
 
     // 7. Modifying a pending review product from a different seller -> fails (auth check)
-    const otherSellerToken = await jwtService.signAsync(
-      { sub: 'different-seller-uuid', roles: ['SELLER'] },
+    const { token: otherSellerToken } = await createTestUserAndToken(
+      prisma,
+      jwtService,
       {
-        secret: process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345',
-        expiresIn: '15m',
+        roles: ['SELLER'],
       },
     );
     await request(app.getHttpServer())

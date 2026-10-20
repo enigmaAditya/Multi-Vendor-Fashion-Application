@@ -17,7 +17,12 @@ import {
   TrendingQuerySchema,
   SimilarQuerySchema,
   AlsoBoughtQuerySchema,
+  type RecentlyViewedQueryDto,
+  type TrendingQueryDto,
+  type SimilarQueryDto,
+  type AlsoBoughtQueryDto,
 } from '@marketplace/types';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 
 @Controller('recommendations')
 export class RecommendationsController {
@@ -45,24 +50,26 @@ export class RecommendationsController {
   @UseGuards(JwtAuthGuard)
   async getRecentlyViewed(
     @Req() req: { user: { sub?: string; id?: string } },
-    @Query() query: unknown,
+    @Query(new ZodValidationPipe(RecentlyViewedQuerySchema))
+    query: RecentlyViewedQueryDto,
   ) {
     const userId = req.user.sub || req.user.id;
     if (!userId) {
       throw new BadRequestException('User ID not found in token.');
     }
-    const parsed = RecentlyViewedQuerySchema.parse(query || {});
-    return this.recommendationsService.getRecentlyViewed(userId, parsed.limit);
+    return this.recommendationsService.getRecentlyViewed(userId, query.limit);
   }
 
   // --- 3. Get Trending Products (Public) ---
   @Get('trending')
-  async getTrending(@Query() query: unknown) {
-    const parsed = TrendingQuerySchema.parse(query || {});
+  async getTrending(
+    @Query(new ZodValidationPipe(TrendingQuerySchema))
+    query: TrendingQueryDto,
+  ) {
     return this.recommendationsService.getTrendingProducts(
-      parsed.limit,
-      parsed.days,
-      parsed.categoryId,
+      query.limit,
+      query.days,
+      query.categoryId,
     );
   }
 
@@ -70,12 +77,12 @@ export class RecommendationsController {
   @Get('similar/:productId')
   async getSimilar(
     @Param('productId') productId: string,
-    @Query() query: unknown,
+    @Query(new ZodValidationPipe(SimilarQuerySchema))
+    query: SimilarQueryDto,
   ) {
-    const parsed = SimilarQuerySchema.parse(query || {});
     return this.recommendationsService.getSimilarProducts(
       productId,
-      parsed.limit,
+      query.limit,
     );
   }
 
@@ -83,12 +90,12 @@ export class RecommendationsController {
   @Get('also-bought/:productId')
   async getAlsoBought(
     @Param('productId') productId: string,
-    @Query() query: unknown,
+    @Query(new ZodValidationPipe(AlsoBoughtQuerySchema))
+    query: AlsoBoughtQueryDto,
   ) {
-    const parsed = AlsoBoughtQuerySchema.parse(query || {});
     return this.recommendationsService.getCustomersAlsoBought(
       productId,
-      parsed.limit,
+      query.limit,
     );
   }
 }

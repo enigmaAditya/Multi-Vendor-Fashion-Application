@@ -20,7 +20,13 @@ import {
   ProductModerationSchema,
   ReviewModerationSchema,
   FinancialReportQuerySchema,
+  type SellerKycApprovalDto,
+  type CommissionRuleUpdateDto,
+  type ProductModerationDto,
+  type ReviewModerationDto,
+  type FinancialReportQueryDto,
 } from '@marketplace/types';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,10 +48,10 @@ export class AdminController {
   @Roles('ADMIN')
   @HttpCode(HttpStatus.OK)
   async approveSellerKyc(@Param('id') sellerId: string, @Body() body: unknown) {
-    const parsed = SellerKycApprovalSchema.parse({
+    const parsed = new ZodValidationPipe(SellerKycApprovalSchema).transform({
       sellerId,
       ...(typeof body === 'object' && body !== null ? body : {}),
-    });
+    }) as SellerKycApprovalDto;
     return this.adminService.approveSellerKyc(
       parsed.sellerId,
       parsed.status,
@@ -58,9 +64,11 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @HttpCode(HttpStatus.OK)
-  async setCommissionRule(@Body() body: unknown) {
-    const parsed = CommissionRuleUpdateSchema.parse(body || {});
-    return this.adminService.setCommissionRule(parsed);
+  async setCommissionRule(
+    @Body(new ZodValidationPipe(CommissionRuleUpdateSchema))
+    body: CommissionRuleUpdateDto,
+  ) {
+    return this.adminService.setCommissionRule(body);
   }
 
   // --- 4. Moderation Queue (Products) ---
@@ -78,10 +86,10 @@ export class AdminController {
   @Roles('ADMIN')
   @HttpCode(HttpStatus.OK)
   async moderateProduct(@Param('id') productId: string, @Body() body: unknown) {
-    const parsed = ProductModerationSchema.parse({
+    const parsed = new ZodValidationPipe(ProductModerationSchema).transform({
       productId,
       ...(typeof body === 'object' && body !== null ? body : {}),
-    });
+    }) as ProductModerationDto;
     return this.adminService.moderateProduct(parsed.productId, parsed.status);
   }
 
@@ -91,10 +99,10 @@ export class AdminController {
   @Roles('ADMIN')
   @HttpCode(HttpStatus.OK)
   async moderateReview(@Param('id') reviewId: string, @Body() body: unknown) {
-    const parsed = ReviewModerationSchema.parse({
+    const parsed = new ZodValidationPipe(ReviewModerationSchema).transform({
       reviewId,
       ...(typeof body === 'object' && body !== null ? body : {}),
-    });
+    }) as ReviewModerationDto;
     return this.adminService.moderateReview(parsed.reviewId, parsed.status);
   }
 
@@ -102,8 +110,11 @@ export class AdminController {
   @Get('finance/summary')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  async getFinancialSummary(@Query() query: unknown) {
-    FinancialReportQuerySchema.parse(query || {});
+  async getFinancialSummary(
+    @Query(new ZodValidationPipe(FinancialReportQuerySchema))
+    _query: FinancialReportQueryDto,
+  ) {
+    void _query;
     return this.adminService.getFinancialSummary();
   }
 }

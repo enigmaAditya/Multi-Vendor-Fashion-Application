@@ -5,6 +5,9 @@
   "testRegex": ".e2e-spec.ts$",
   "setupFiles": ["<rootDir>/setup.ts"],
   "roots": ["<rootDir>", "<rootDir>/../../web/app/lib"],
+  "moduleNameMapper": {
+    "^@marketplace/(types|constants)$": "<rootDir>/../../../packages/$1/src/index.ts"
+  },
   "transform": {
     "^.+\\.(t|j)s$": [
       "ts-jest",

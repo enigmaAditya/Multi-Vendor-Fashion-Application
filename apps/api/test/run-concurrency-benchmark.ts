@@ -114,7 +114,7 @@ async function runBenchmark() {
       },
     });
     const token = await jwtService.signAsync(
-      { sub: buyerId, roles: ['USER'] },
+      { sub: buyerId, roles: ['USER'], token_version: 0 },
       { secret, expiresIn: '15m' },
     );
     buyerTokens.push(token);

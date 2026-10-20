@@ -30,6 +30,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { signTestToken } from './utils/auth-helper';
 
 describe('Inventory System (e2e)', () => {
   let app: INestApplication<App>;
@@ -66,27 +67,31 @@ describe('Inventory System (e2e)', () => {
     buyerId3 = crypto.randomUUID();
 
     // Sign tokens
-    const secret = process.env.JWT_ACCESS_SECRET || 'access-secret-key-12345';
-    sellerToken = await jwtService.signAsync(
-      { sub: sellerId, roles: ['SELLER'] },
-      { secret, expiresIn: '15m' },
-    );
-    adminToken = await jwtService.signAsync(
-      { sub: adminId, roles: ['ADMIN'] },
-      { secret, expiresIn: '15m' },
-    );
-    buyerToken1 = await jwtService.signAsync(
-      { sub: buyerId1, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
-    buyerToken2 = await jwtService.signAsync(
-      { sub: buyerId2, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
-    buyerToken3 = await jwtService.signAsync(
-      { sub: buyerId3, roles: ['USER'] },
-      { secret, expiresIn: '15m' },
-    );
+    sellerToken = await signTestToken(jwtService, {
+      sub: sellerId,
+      roles: ['SELLER'],
+      token_version: 0,
+    });
+    adminToken = await signTestToken(jwtService, {
+      sub: adminId,
+      roles: ['ADMIN'],
+      token_version: 0,
+    });
+    buyerToken1 = await signTestToken(jwtService, {
+      sub: buyerId1,
+      roles: ['USER'],
+      token_version: 0,
+    });
+    buyerToken2 = await signTestToken(jwtService, {
+      sub: buyerId2,
+      roles: ['USER'],
+      token_version: 0,
+    });
+    buyerToken3 = await signTestToken(jwtService, {
+      sub: buyerId3,
+      roles: ['USER'],
+      token_version: 0,
+    });
   });
 
   beforeEach(async () => {
